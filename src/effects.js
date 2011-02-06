@@ -1,3 +1,9 @@
+/*
+ * Cases where transition should be disabled:
+ * - when there is a special easing
+ * - when there is a step function
+ * - when jQuery.fx.off is true (should work out of the box)
+ */
 (function( jQuery ) {
 
 var elemdisplay = {},
@@ -12,6 +18,18 @@ var elemdisplay = {},
 		// opacity animations
 		[ "opacity" ]
 	];
+
+// TRANSITION++
+// Following feature test code should be moved to support.js
+var div = document.createElement('div'),
+	divStyle = div.style;
+// Only test for transition support in Firefox and Webkit 
+// as we know for sure that Opera has too much bugs (see http://csstransition.net)
+// and there's no guarantee that first IE implementation will be bug-free
+$.support.transition =
+	divStyle.MozTransition === '' ? {name: 'MozTransition', end: 'transitionend'}:
+	divStyle.WebkitTransition === '' ? {name: 'WebkitTransition', end: 'webkitTransitionEnd'}:
+	false;
 
 jQuery.fn.extend({
 	show: function( speed, easing, callback ) {
@@ -125,6 +143,10 @@ jQuery.fn.extend({
 				css = jQuery.css,
 				fx = jQuery.fx,
 				startTime = _startTime,
+				// TRANSITION++
+				cssHooks = jQuery.cssHooks,
+				transition = support.transition,
+				transitionName,
 				// cache end
 				opt = extend({}, optall), p,
 				isElement = self.nodeType === 1,
@@ -133,7 +155,14 @@ jQuery.fn.extend({
 				name, val,
 				display,
 				e,
-				parts, start, end, unit;
+				parts, start, end, unit,
+				// TRANSITION++
+				props = [],
+				durations = [],
+				queue = opt.queue !== false,
+				duration,
+				property,
+				hook;
 
 			// jQuery.now() is called only once for all animated properties of all elements
 			if (!startTime) {
@@ -149,6 +178,17 @@ jQuery.fn.extend({
 					p = name;
 				}
 				val = prop[p];
+
+				// TRANSITION++
+				// collect the properties to be added to elem.style.transitionProperty
+				if (transition) {
+					// We are doing the exact same conversion once again after the second loop.
+					// One of them can probably be spared.
+					hook = cssHooks[p];
+					props.push(hook? hook.affectedProperty.replace(/([A-Z])/g, '-$1').toLowerCase() || p : p);
+					// Add as much duration as properties, to be able to add different durations when queue option is false
+					duration.push(opt.duration);
+				}
 
 				if ( val === "hide" && hidden || val === "show" && !hidden ) {
 					return opt.complete.call(self);
@@ -197,6 +237,20 @@ jQuery.fn.extend({
 			}
 
 			opt.curAnim = extend({}, prop);
+			
+			// TRANSITION++
+			if ( transition ) {
+				transitionName = transition.name;
+				duration = transitionName + 'Duration';
+				property = transitionName + 'Property';
+				thisStyle[duration] = durations.join('ms,') + 'ms' + queue ?
+					'':
+					// Add previous duration list if queue option is false
+					',' + thisStyle[duration];
+				thisStyle[property] = props.join();
+				thisStyle[transitionName + 'TimingFunction'] = 'linear';
+				props = {};
+			}
 
 			for ( p in prop ) {
 				e = new fx( self, opt, p );
