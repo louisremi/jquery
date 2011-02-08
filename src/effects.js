@@ -1,8 +1,11 @@
 /*
  * Cases where transition should be disabled:
+ * - in incompatible browsers (Opera 11 included)
  * - when there is a special easing
  * - when there is a step function
  * - when jQuery.fx.off is true (should work out of the box)
+ *
+ * jQuery.fx.stop() won't pause transitions, but this is an undocumented method and behavior anyway.
  */
 (function( jQuery ) {
 
@@ -30,6 +33,21 @@ $.support.transition =
 	divStyle.MozTransition === '' ? {name: 'MozTransition', end: 'transitionend'}:
 	divStyle.WebkitTransition === '' ? {name: 'WebkitTransition', end: 'webkitTransitionEnd'}:
 	false;
+// prevent IE memory leak;
+div = null;
+
+// global transitionend event dispatcher
+var transition = $.support.transition;
+if ( transition ) {
+	// following code is going to run on every transitionend, it has to be fast!
+	window.addEventListener( transition.end, function(e) {
+		var effect = jQuery.data(e.target, 'effect');
+		if ( effect = effect && effect[jQuery.camelCase(e.propertyName)] ) {
+			effect.step( true, transition );
+			effect = null;
+		}
+	}, false );
+}
 
 jQuery.fn.extend({
 	show: function( speed, easing, callback ) {
@@ -145,23 +163,26 @@ jQuery.fn.extend({
 				startTime = _startTime,
 				// TRANSITION++
 				cssHooks = jQuery.cssHooks,
-				transition = support.transition,
 				transitionName,
 				// cache end
 				opt = extend({}, optall), p,
+				// disable transition if a step option is supplied
+				supportTransition = support.transition && !opt.step,
 				isElement = self.nodeType === 1,
 				hidden = isElement && jQuery(self).is(":hidden"),
 				thisStyle = self.style,
-				name, val, easing
+				name, val, easing, transition,
 				display,
 				e,
 				parts, start, end, unit,
 				// TRANSITION++
 				props = [],
 				durations = [],
+				easings = [],
 				queue = opt.queue !== false,
 				duration,
 				property,
+				timingFunction,
 				hook;
 
 			// jQuery.now() is called only once for all animated properties of all elements
@@ -169,7 +190,12 @@ jQuery.fn.extend({
 				_startTime = startTime = jQuery.now();
 			}
 
+			// per property easing
 			opt.specialEasing = opt.specialEasing || {};
+			// transition is enabled per property, when:
+			// - there is no step function for the animation
+			// - there is no easing for the property
+			opt.transition = {};
 
 			for ( p in prop ) {
 				name = jQuery.camelCase( p );
@@ -181,17 +207,6 @@ jQuery.fn.extend({
 				}
 				val = prop[p];
 				easing = opt.specialEasing[p];
-
-				// TRANSITION++
-				// collect the properties to be added to elem.style.transitionProperty
-				if (transition) {
-					// We are doing the exact same conversion once again after the second loop.
-					// One of them can probably be spared.
-					hook = cssHooks[p];
-					props.push(hook? hook.affectedProperty.replace(/([A-Z])/g, '-$1').toLowerCase() || p : p);
-					// Add as much duration as properties, to be able to add different durations when queue option is false
-					duration.push(opt.duration);
-				}
 
 				if ( val === "hide" && hidden || val === "show" && !hidden ) {
 					return opt.complete.call(self);
@@ -240,6 +255,25 @@ jQuery.fn.extend({
 					easing = opt.easing || 'swing';
 				}
 				opt.specialEasing[p] = easing;
+				// TRANSITION++
+				// prevent transition when a special easing is supplied
+				transition = supportTransition ?
+					// we could use a hash to convert the names
+					easing == 'swing' ? 'ease':
+					easing == 'linear' ? easing:
+					false;
+
+				// collect the properties to be added to elem.style.transition...
+				if ( transition ) {
+					// We are doing the exact same conversion once again after the second loop.
+					// One of them can probably be spared.
+					hook = cssHooks[p];
+					props.push(hook? hook.affectedProperty.replace(/([A-Z])/g, '-$1').toLowerCase() || p : p);
+					// Add as much duration as properties, to be able to add different durations when queue option is false
+					duration.push(opt.duration);
+					easings.push(transition);
+				}
+				opt.transition[p] = transition;
 			}
 
 			if ( opt.overflow != null ) {
@@ -249,16 +283,21 @@ jQuery.fn.extend({
 			opt.curAnim = extend({}, prop);
 			
 			// TRANSITION++
-			if ( transition ) {
+			if ( supportTransition ) {
 				transitionName = transition.name;
 				duration = transitionName + 'Duration';
 				property = transitionName + 'Property';
+				timingFunction = transitionName + 'TimingFunction';
+				// values should be concatenated to the previous one if the animation is not being queued
 				thisStyle[duration] = durations.join('ms,') + 'ms' + queue ?
 					'':
-					// Add previous duration list if queue option is false
 					',' + thisStyle[duration];
-				thisStyle[property] = props.join();
-				thisStyle[transitionName + 'TimingFunction'] = 'linear';
+				thisStyle[property] = props.join() + queue ?
+					'':
+					',' + thisStyle[property];
+				thisStyle[timingFunction] = easings.join() + queue ?
+					'':
+					',' + thisStyle[timingFunction];
 				props = {};
 			}
 
