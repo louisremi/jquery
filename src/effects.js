@@ -1,4 +1,6 @@
-/*
+/* Current limitations:
+ * - queue: false option doesn't work
+ *
  * Cases where transition should be disabled:
  * - in incompatible browsers (Opera 11 included)
  * - when there is a special easing
@@ -163,7 +165,6 @@ jQuery.fn.extend({
 				startTime = _startTime,
 				// TRANSITION++
 				cssHooks = jQuery.cssHooks,
-				transitionName,
 				// cache end
 				opt = extend({}, optall), p,
 				// disable transition if a step option is supplied
@@ -171,7 +172,7 @@ jQuery.fn.extend({
 				isElement = self.nodeType === 1,
 				hidden = isElement && jQuery(self).is(":hidden"),
 				thisStyle = self.style,
-				name, val, easing, transition,
+				name, val, easing,
 				display,
 				e,
 				parts, start, end, unit,
@@ -183,6 +184,7 @@ jQuery.fn.extend({
 				duration,
 				property,
 				timingFunction,
+				transitionName,
 				hook;
 
 			// jQuery.now() is called only once for all animated properties of all elements
@@ -190,23 +192,25 @@ jQuery.fn.extend({
 				_startTime = startTime = jQuery.now();
 			}
 
-			// per property easing
-			opt.specialEasing = opt.specialEasing || {};
+			// will store per property easing and be used to determine when an animation is complete
+			opt.animatedProperties = {};
+			// TRANSITION++
 			// transition is enabled per property, when:
 			// - there is no step function for the animation
 			// - there is no easing for the property
 			opt.transition = {};
 
 			for ( p in prop ) {
-				name = jQuery.camelCase( p );
 
+				// property name normalization
+				name = jQuery.camelCase( p );
 				if ( p !== name ) {
 					prop[ name ] = prop[ p ];
 					delete prop[ p ];
 					p = name;
 				}
+
 				val = prop[p];
-				easing = opt.specialEasing[p];
 
 				if ( val === "hide" && hidden || val === "show" && !hidden ) {
 					return opt.complete.call(self);
@@ -243,18 +247,15 @@ jQuery.fn.extend({
 					}
 				}
 
-				// easing resolution code
-				// per property easing
+				// easing resolution: per property > opt.specialEasing > opt.easing > 'swing' (default)
 				if ( jQuery.isArray( val ) ) {
-					// Create (if needed) and add to specialEasing
 					easing = val[1];
 					val = val[0];
+				} else {
+					easing = opt.specialEasing && opt.specialEasing[p] || opt.easing || 'swing';
 				}
-				// global easing or default easing
-				if ( !easing ) {
-					easing = opt.easing || 'swing';
-				}
-				opt.specialEasing[p] = easing;
+				opt.animatedProperties[p] = easing;
+
 				// TRANSITION++
 				// prevent transition when a special easing is supplied
 				transition = supportTransition ?
@@ -280,8 +281,6 @@ jQuery.fn.extend({
 				thisStyle.overflow = "hidden";
 			}
 
-			opt.curAnim = extend({}, prop);
-			
 			// TRANSITION++
 			if ( supportTransition ) {
 				transitionName = transition.name;
@@ -334,6 +333,17 @@ jQuery.fn.extend({
 					} else {
 						e.custom( startTime, start, val, "" );
 					}
+				}
+				// TRANSITION++
+				// collects fx objects to use fx.step( gotoEnd ) on transitionEnd
+				if ( transition ) {
+					// the rotate.js cssHooks affects the transform property.
+					// the developer needs to tell us, so that we can detect the transition end of that hook.
+					// he/she will also take care of browser normalization.
+					// note: this breaks if different hooks affect the same property, but this is unlikely to happen
+					hook = cssHooks[name];
+					// affectedProperty could also be named "targetProp", "transitionEquivalent", or anything, really.
+					props[hook && hook.affectedProperty || name] = e;
 				}
 			}
 
@@ -440,9 +450,7 @@ jQuery.extend({
 		this.elem = elem;
 		this.prop = prop;
 
-		if ( !options.orig ) {
-			options.orig = {};
-		}
+		options.orig = options.orig || {};
 	}
 
 });
@@ -529,10 +537,10 @@ jQuery.fx.prototype = {
 			this.pos = this.state = 1;
 			this.update();
 
-			options.curAnim[ this.prop ] = true;
+			options.animatedProperties[ this.prop ] = true;
 
-			for ( i in options.curAnim ) {
-				if ( options.curAnim[i] !== true ) {
+			for ( i in options.animatedProperties ) {
+				if ( options.animatedProperties[i] !== true ) {
 					done = false;
 				}
 			}
@@ -554,7 +562,7 @@ jQuery.fx.prototype = {
 				// Reset the properties, if the item has been hidden or shown
 				if ( options.hide || options.show ) {
 					style = jQuery.style;
-					for ( p in options.curAnim ) {
+					for ( p in options.animatedProperties ) {
 						style( elem, p, options.orig[p] );
 					}
 				}
@@ -574,7 +582,7 @@ jQuery.fx.prototype = {
 
 				this.state = n / duration;
 				// Perform the easing function, defaults to swing
-				this.pos = jQuery.easing[options.specialEasing[this.prop]](this.state, n, 0, 1, duration);
+				this.pos = jQuery.easing[options.animatedProperties[this.prop]](this.state, n, 0, 1, duration);
 				this.now = this.start + ((this.end - this.start) * this.pos);
 			}
 			// Perform the next step of the animation
