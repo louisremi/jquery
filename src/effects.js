@@ -347,6 +347,14 @@ jQuery.fn.extend({
 				}
 			}
 
+			// TRANSITION++
+			if ( transition ) {
+				jQuery.event.add( this, transition.end +'.animate', function( e ) {
+					// and this should call fx.step( gotoEnd ), one property at a time.
+					props[jQuery.camelCase(e.originalEvent.propertyName)].step( true, transition );
+				});
+			}
+
 			// For JS strict compliance
 			return true;
 		});
