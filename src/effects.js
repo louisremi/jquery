@@ -167,8 +167,6 @@ jQuery.fn.extend({
 				cssHooks = jQuery.cssHooks,
 				// cache end
 				opt = extend({}, optall), p,
-				// disable transition if a step option is supplied
-				supportTransition = support.transition && !opt.step,
 				isElement = self.nodeType === 1,
 				hidden = isElement && jQuery(self).is(":hidden"),
 				thisStyle = self.style,
@@ -177,14 +175,11 @@ jQuery.fn.extend({
 				e,
 				parts, start, end, unit,
 				// TRANSITION++
-				props = [],
-				durations = [],
-				easings = [],
+				// disable transition if a step option is supplied
+				supportTransition = support.transition && !opt.step,
+				transition,
+				transitions = [],
 				queue = opt.queue !== false,
-				duration,
-				property,
-				timingFunction,
-				transitionName,
 				hook;
 
 			// jQuery.now() is called only once for all animated properties of all elements
@@ -197,7 +192,7 @@ jQuery.fn.extend({
 			// TRANSITION++
 			// transition is enabled per property, when:
 			// - there is no step function for the animation
-			// - there is no easing for the property
+			// - there is no special easing for the property
 			opt.transition = {};
 
 			for ( p in prop ) {
@@ -266,15 +261,18 @@ jQuery.fn.extend({
 
 				// collect the properties to be added to elem.style.transition...
 				if ( transition ) {
-					// We are doing the exact same conversion once again after the second loop.
-					// One of them can probably be spared.
 					hook = cssHooks[p];
-					props.push(hook? hook.affectedProperty.replace(/([A-Z])/g, '-$1').toLowerCase() || p : p);
+					transition =
+						// convert property name to the appropriate vendor prefixed property name if necessary
+						(hook && hook.affectedProperty ? hook.affectedProperty.replace(/([A-Z]|^ms)/g, '-$1').toLowerCase() : p) +" "+
+						opt.duration +"ms "+
+						transition;
+
 					// Add as much duration as properties, to be able to add different durations when queue option is false
-					duration.push(opt.duration);
-					easings.push(transition);
+					transitions.push(transition)
+
+					opt.transition[p] = true;
 				}
-				opt.transition[p] = transition;
 			}
 
 			if ( opt.overflow != null ) {
@@ -282,22 +280,18 @@ jQuery.fn.extend({
 			}
 
 			// TRANSITION++
-			if ( supportTransition ) {
-				transitionName = transition.name;
-				duration = transitionName + 'Duration';
-				property = transitionName + 'Property';
-				timingFunction = transitionName + 'TimingFunction';
-				// values should be concatenated to the previous one if the animation is not being queued
-				thisStyle[duration] = durations.join('ms,') + 'ms' + queue ?
+			if ( supportTransition && transitions.length ) {
+				thisStyle[transition.name] = transitions.join() + queue ?
 					'':
-					',' + thisStyle[duration];
-				thisStyle[property] = props.join() + queue ?
-					'':
-					',' + thisStyle[property];
-				thisStyle[timingFunction] = easings.join() + queue ?
-					'':
-					',' + thisStyle[timingFunction];
-				props = {};
+					// values should be concatenated to the previous one if the animation is not being queued
+					',' + thisStyle[transition.name];
+
+				props = jQuery.data( self, 'transition', undefined, true);
+
+				if ( !props ) {
+					props = {};
+					jQuery.data( self, 'transition', props, true);
+				}
 			}
 
 			for ( p in prop ) {
@@ -336,7 +330,7 @@ jQuery.fn.extend({
 				}
 				// TRANSITION++
 				// collects fx objects to use fx.step( gotoEnd ) on transitionEnd
-				if ( transition ) {
+				if ( opt.transition[p] ) {
 					// the rotate.js cssHooks affects the transform property.
 					// the developer needs to tell us, so that we can detect the transition end of that hook.
 					// he/she will also take care of browser normalization.
@@ -345,14 +339,6 @@ jQuery.fn.extend({
 					// affectedProperty could also be named "targetProp", "transitionEquivalent", or anything, really.
 					props[hook && hook.affectedProperty || name] = e;
 				}
-			}
-
-			// TRANSITION++
-			if ( transition ) {
-				jQuery.event.add( this, transition.end +'.animate', function( e ) {
-					// and this should call fx.step( gotoEnd ), one property at a time.
-					props[jQuery.camelCase(e.originalEvent.propertyName)].step( true, transition );
-				});
 			}
 
 			// For JS strict compliance
