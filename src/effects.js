@@ -462,12 +462,18 @@ jQuery.fx.prototype = {
 	// Get the current size
 	cur: function() {
 		var elem = this.elem,
-			prop = this.prop;
+			prop = this.prop,
+			r,
+			parsed;
 		if ( elem[prop] != null && (!elem.style || elem.style[prop] == null) ) {
 			return elem[ prop ];
 		}
 
-		return parseFloat( jQuery.css( elem, prop ) ) || 0;
+		r = jQuery.css( elem, prop );
+		// Empty strings and "auto" are converted to 0,
+		// complex values such as "rotate(1rad)" are returned as is,
+		// simple values such as "10px" are parsed to Float.
+		return r === "" || r === "auto" ? 0 : isNaN( parsed = parseFloat(r) ) ? r : parsed;
 	},
 
 	// Start an animation from one number to another
@@ -488,7 +494,10 @@ jQuery.fx.prototype = {
 
 		t.elem = self.elem;
 
-		if ( t( false, startTime ) && jQuery.timers.push(t) && !timerId ) {
+		if ( self.options.transition[prop] ) {
+			jQuery.style(self.elem, self.prop, to + unit);
+
+		} else if ( t( false, startTime ) && jQuery.timers.push(t) && !timerId ) {
 			timerId = setInterval(fx.tick, fx.interval);
 		}
 	},
@@ -524,12 +533,24 @@ jQuery.fx.prototype = {
 			elem = this.elem,
 			options = this.options,
 			duration = options.duration,
+			transition = options.transition[this.prop],
 			i, p, style;
 
-		if ( gotoEnd || t >= duration + this.startTime ) {
-			this.now = this.end;
-			this.pos = this.state = 1;
-			this.update();
+		if ( transition || gotoEnd || t >= duration + this.startTime ) {
+			if ( !transition ) {
+				this.now = this.end;
+				this.pos = this.state = 1;
+				this.update();
+
+			// Stop a transition halfway through
+    	} else if ( !gotoEnd ) {
+				if ( hook = jQuery.cssHooks[prop] ) {
+		    	prop = hook.affectedProperty || prop;
+		    }
+		    // yes, stoping a transition halfway through should be as simple as setting a property to its current value.
+		    // Try to call window.getComputedStyle() only once per element (in tick()?)
+		    this.elem.style[prop] = window.getComputedStyle(this.elem)[prop];
+			}
 
 			options.animatedProperties[ this.prop ] = true;
 
