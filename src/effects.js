@@ -43,10 +43,10 @@ var transition = $.support.transition;
 if ( transition ) {
 	// following code is going to run on every transitionend, it has to be fast!
 	window.addEventListener( transition.end, function(e) {
-		var effect = jQuery.data(e.target, 'effect');
-		if ( effect = effect && effect[jQuery.camelCase(e.propertyName)] ) {
-			effect.step( true, transition );
-			effect = null;
+		var trans = jQuery.data(e.target, 'transition');
+		if ( trans = effect && trans[jQuery.camelCase(e.propertyName)] ) {
+			trans.step( true, transition );
+			trans = null;
 		}
 	}, false );
 }
@@ -163,8 +163,6 @@ jQuery.fn.extend({
 				css = jQuery.css,
 				fx = jQuery.fx,
 				startTime = _startTime,
-				// TRANSITION++
-				cssHooks = jQuery.cssHooks,
 				// cache end
 				opt = extend({}, optall), p,
 				isElement = self.nodeType === 1,
@@ -175,6 +173,7 @@ jQuery.fn.extend({
 				e,
 				parts, start, end, unit,
 				// TRANSITION++
+				cssHooks = jQuery.cssHooks,
 				// disable transition if a step option is supplied
 				supportTransition = support.transition && !opt.step,
 				transition,
@@ -470,10 +469,10 @@ jQuery.fx.prototype = {
 		}
 
 		r = jQuery.css( elem, prop );
-		// Empty strings and "auto" are converted to 0,
+		// Empty strings, null, undefined and "auto" are converted to 0,
 		// complex values such as "rotate(1rad)" are returned as is,
 		// simple values such as "10px" are parsed to Float.
-		return r === "" || r === "auto" ? 0 : isNaN( parsed = parseFloat(r) ) ? r : parsed;
+		return isNaN( parsed = parseFloat( r ) ) ? !r || r === "auto" ? 0 : r : parsed;
 	},
 
 	// Start an animation from one number to another
@@ -534,6 +533,7 @@ jQuery.fx.prototype = {
 			options = this.options,
 			duration = options.duration,
 			transition = options.transition[this.prop],
+			supportTransition
 			i, p, style;
 
 		if ( transition || gotoEnd || t >= duration + this.startTime ) {
@@ -581,6 +581,14 @@ jQuery.fx.prototype = {
 						style( elem, p, options.orig[p] );
 					}
 				}
+
+				// TRANSITION++
+		    if ( transition ) {
+		    	supportTransition = jQuery.support.transition;
+		    	this.elem.style[supportTransition.name + 'Duration'] = '0';
+		    	this.elem.style[supportTransition.name + 'Property'] = 'none';
+		    	jQuery.event.remove( this.elem, supportTransition.end +'.animate' );
+		    }
 
 				// Execute the complete function
 				options.complete.call( elem );
