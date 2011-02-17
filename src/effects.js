@@ -43,7 +43,6 @@ var transition = jQuery.support.transition;
 if ( transition ) {
 	// following code is going to run on every transitionend, it has to be fast!
 	window.addEventListener( transition.end, function(e) {
-		console.log(e)
 		var trans = jQuery.data(e.target, 'transition');
 		trans = trans && trans[jQuery.camelCase(e.propertyName)];
 		if ( trans ) {
