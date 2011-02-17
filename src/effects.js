@@ -1,5 +1,6 @@
-/* Current limitations:
- * - queue: false option doesn't work
+/* It is complicated to make transition work with opt.queue == false because:
+ * - the transition property need to be modified on every transitionend instead of once for all on complete
+ * - it is hard to determine when a particular animation completed
  *
  * Cases where transition should be disabled:
  * - in incompatible browsers (Opera 11 included)
@@ -174,11 +175,11 @@ jQuery.fn.extend({
 				parts, start, end, unit,
 				// TRANSITION++
 				cssHooks = jQuery.cssHooks,
-				// disable transition if a step option is supplied
-				supportTransition = !opt.step && support.transition,
+				queue = opt.queue !== false,
+				// disable transition if a step or queue option is supplied
+				supportTransition = !opt.step && queue && support.transition,
 				transition,
 				transitions = [],
-				queue = opt.queue !== false,
 				hook;
 
 			// jQuery.now() is called only once for all animated properties of all elements
@@ -287,10 +288,7 @@ jQuery.fn.extend({
 			// TRANSITION++
 			if ( supportTransition && transitions.length ) {
 				// values should be concatenated to the previous one if the animation is not being queued
-				thisStyle[supportTransition.name] = transitions.join() + ( queue ?
-					'':
-					',' + thisStyle[supportTransition.name]
-				);
+				thisStyle[supportTransition.name] = transitions.join();
 				
 
 				props = jQuery.data( self, 'transition', undefined, true);
