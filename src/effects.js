@@ -44,8 +44,7 @@ if ( transition ) {
 	// following code is going to run on every transitionend, it has to be fast!
 	window.addEventListener( transition.end, function(e) {
 		var trans = jQuery.data( e.target, 'transition', undefined, true );
-		trans = trans && trans[jQuery.camelCase(e.propertyName)];
-		if ( trans ) {
+		if ( (trans = trans && trans[jQuery.camelCase(e.propertyName)]) ) {
 			trans.step( true, transition );
 			trans = null;
 		}
@@ -343,9 +342,9 @@ jQuery.fn.extend({
 					// the developer needs to tell us, so that we can detect the transition end of that hook.
 					// he/she will also take care of browser normalization.
 					// note: this breaks if different hooks affect the same property, but this is unlikely to happen
-					hook = cssHooks[name];
+					hook = cssHooks[p];
 					// affectedProperty could also be named "targetProp", "transitionEquivalent", or anything, really.
-					props[hook && hook.affectedProperty || name] = e;
+					props[hook && hook.affectedProperty || p] = e;
 				}
 			}
 
