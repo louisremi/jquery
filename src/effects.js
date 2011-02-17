@@ -7,7 +7,7 @@
  * - when there is a step function
  * - when jQuery.fx.off is true (should work out of the box)
  *
- * jQuery.fx.stop() won't pause transitions, but this is an undocumented method and behavior anyway.
+ * jQuery.fx.stop() will stop animations instead of pausing them (undocumented method and behavior anyway).
  */
 (function( jQuery ) {
 
@@ -31,7 +31,7 @@ var div = document.createElement('div'),
 // Only test for transition support in Firefox and Webkit 
 // as we know for sure that Opera has too much bugs (see http://csstransition.net)
 // and there's no guarantee that first IE implementation will be bug-free
-$.support.transition =
+jQuery.support.transition =
 	divStyle.MozTransition === '' ? {name: 'MozTransition', end: 'transitionend'}:
 	divStyle.WebkitTransition === '' ? {name: 'WebkitTransition', end: 'webkitTransitionEnd'}:
 	false;
@@ -39,12 +39,14 @@ $.support.transition =
 div = null;
 
 // global transitionend event dispatcher
-var transition = $.support.transition;
+var transition = jQuery.support.transition;
 if ( transition ) {
 	// following code is going to run on every transitionend, it has to be fast!
 	window.addEventListener( transition.end, function(e) {
+		console.log(e)
 		var trans = jQuery.data(e.target, 'transition');
-		if ( trans = effect && trans[jQuery.camelCase(e.propertyName)] ) {
+		trans = trans && trans[jQuery.camelCase(e.propertyName)];
+		if ( trans ) {
 			trans.step( true, transition );
 			trans = null;
 		}
@@ -175,7 +177,7 @@ jQuery.fn.extend({
 				// TRANSITION++
 				cssHooks = jQuery.cssHooks,
 				// disable transition if a step option is supplied
-				supportTransition = support.transition && !opt.step,
+				supportTransition = !opt.step && support.transition,
 				transition,
 				transitions = [],
 				queue = opt.queue !== false,
@@ -252,25 +254,31 @@ jQuery.fn.extend({
 
 				// TRANSITION++
 				// prevent transition when a special easing is supplied
-				transition = supportTransition ?
+				transition = supportTransition && (
 					// we could use a hash to convert the names
 					easing == 'swing' ? 'ease':
 					easing == 'linear' ? easing:
-					false;
+					false
+				);
 
 				// collect the properties to be added to elem.style.transition...
 				if ( transition ) {
+					opt.transition[p] = true;
+
 					hook = cssHooks[p];
+					p = hook && hook.affectedProperty || p;
+
+					// explicitely set the property to it's current computed value to workaround bugzil.la/571344
+					thisStyle[p] = jQuery.css( self, p );
+
 					transition =
-						// convert property name to the appropriate vendor prefixed property name if necessary
-						(hook && hook.affectedProperty ? hook.affectedProperty.replace(/([A-Z]|^ms)/g, '-$1').toLowerCase() : p) +" "+
+						// un-camel-case
+						p.replace(/([A-Z]|^ms)/g, '-$1').toLowerCase() +" "+
 						opt.duration +"ms "+
 						transition;
 
 					// Add as much duration as properties, to be able to add different durations when queue option is false
-					transitions.push(transition)
-
-					opt.transition[p] = true;
+					transitions.push(transition);
 				}
 			}
 
@@ -280,10 +288,12 @@ jQuery.fn.extend({
 
 			// TRANSITION++
 			if ( supportTransition && transitions.length ) {
-				thisStyle[transition.name] = transitions.join() + queue ?
+				// values should be concatenated to the previous one if the animation is not being queued
+				thisStyle[supportTransition.name] = transitions.join() + ( queue ?
 					'':
-					// values should be concatenated to the previous one if the animation is not being queued
-					',' + thisStyle[transition.name];
+					',' + thisStyle[supportTransition.name]
+				);
+				
 
 				props = jQuery.data( self, 'transition', undefined, true);
 
@@ -303,7 +313,7 @@ jQuery.fn.extend({
 
 				} else {
 					parts = rfxnum.exec(val);
-					start = e.cur() || 0;
+					start = e.cur();
 
 					if ( parts ) {
 						end = parseFloat( parts[2] );
@@ -493,8 +503,8 @@ jQuery.fx.prototype = {
 
 		t.elem = self.elem;
 
-		if ( self.options.transition[prop] ) {
-			jQuery.style(self.elem, self.prop, to + unit);
+		if ( self.options.transition[self.prop] ) {
+			jQuery.style( self.elem, self.prop, to + self.unit );
 
 		} else if ( t( false, startTime ) && jQuery.timers.push(t) && !timerId ) {
 			timerId = setInterval(fx.tick, fx.interval);
@@ -533,7 +543,7 @@ jQuery.fx.prototype = {
 			options = this.options,
 			duration = options.duration,
 			transition = options.transition[this.prop],
-			supportTransition
+			supportTransition,
 			i, p, style;
 
 		if ( transition || gotoEnd || t >= duration + this.startTime ) {
@@ -543,13 +553,12 @@ jQuery.fx.prototype = {
 				this.update();
 
 			// Stop a transition halfway through
-    	} else if ( !gotoEnd ) {
-				if ( hook = jQuery.cssHooks[prop] ) {
-		    	prop = hook.affectedProperty || prop;
-		    }
+			} else if ( !gotoEnd ) {
+				hook = jQuery.cssHooks[prop];
+				prop = hook && hook.affectedProperty || prop;
 		    // yes, stoping a transition halfway through should be as simple as setting a property to its current value.
 		    // Try to call window.getComputedStyle() only once per element (in tick()?)
-		    this.elem.style[prop] = window.getComputedStyle(this.elem)[prop];
+		    this.elem.style[prop] = jQuery.css( this.elem, prop );
 			}
 
 			options.animatedProperties[ this.prop ] = true;
@@ -583,12 +592,9 @@ jQuery.fx.prototype = {
 				}
 
 				// TRANSITION++
-		    if ( transition ) {
-		    	supportTransition = jQuery.support.transition;
-		    	this.elem.style[supportTransition.name + 'Duration'] = '0';
-		    	this.elem.style[supportTransition.name + 'Property'] = 'none';
-		    	jQuery.event.remove( this.elem, supportTransition.end +'.animate' );
-		    }
+				if ( transition ) {
+					this.elem.style[jQuery.support.transition.name] = '';
+				}
 
 				// Execute the complete function
 				options.complete.call( elem );
