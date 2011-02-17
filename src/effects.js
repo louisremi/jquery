@@ -43,7 +43,7 @@ var transition = jQuery.support.transition;
 if ( transition ) {
 	// following code is going to run on every transitionend, it has to be fast!
 	window.addEventListener( transition.end, function(e) {
-		var trans = jQuery.data(e.target, 'transition');
+		var trans = jQuery.data( e.target, 'transition', undefined, true );
 		trans = trans && trans[jQuery.camelCase(e.propertyName)];
 		if ( trans ) {
 			trans.step( true, transition );
@@ -541,8 +541,11 @@ jQuery.fx.prototype = {
 			elem = this.elem,
 			options = this.options,
 			duration = options.duration,
+			// TRANSITION++
+			prop = this.prop,
 			transition = options.transition[this.prop],
 			supportTransition,
+			hook,
 			i, p, style;
 
 		if ( transition || gotoEnd || t >= duration + this.startTime ) {
