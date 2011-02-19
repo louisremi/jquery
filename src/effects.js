@@ -33,24 +33,11 @@ var div = document.createElement('div'),
 // as we know for sure that Opera has too much bugs (see http://csstransition.net)
 // and there's no guarantee that first IE implementation will be bug-free
 jQuery.support.transition =
-	divStyle.MozTransition === '' ? {name: 'MozTransition', end: 'transitionend'}:
-	divStyle.WebkitTransition === '' ? {name: 'WebkitTransition', end: 'webkitTransitionEnd'}:
+	divStyle.MozTransition === '' ? 'MozTransition':
+	divStyle.WebkitTransition === '' ? 'WebkitTransition':
 	false;
 // prevent IE memory leak;
-div = null;
-
-// global transitionend event dispatcher
-var transition = jQuery.support.transition;
-if ( transition ) {
-	// following code is going to run on every transitionend, it has to be fast!
-	window.addEventListener( transition.end, function(e) {
-		var trans = jQuery.data( e.target, 'transition', undefined, true );
-		if ( (trans = trans && trans[jQuery.camelCase(e.propertyName)]) ) {
-			trans.step( true, transition );
-			trans = null;
-		}
-	}, false );
-}
+div = divStyle = null;
 
 jQuery.fn.extend({
 	show: function( speed, easing, callback ) {
@@ -175,9 +162,8 @@ jQuery.fn.extend({
 				parts, start, end, unit,
 				// TRANSITION++
 				cssHooks = jQuery.cssHooks,
-				queue = opt.queue !== false,
-				// disable transition if a step or queue option is supplied
-				supportTransition = !opt.step && queue && support.transition,
+				// disable transition if a step option is supplied
+				supportTransition = !opt.step && support.transition,
 				transition,
 				transitions = [],
 				hook;
@@ -271,12 +257,10 @@ jQuery.fn.extend({
 					thisStyle[p] = jQuery.css( self, p );
 
 					transition =
-						// un-camel-case
-						p.replace(/([A-Z]|^ms)/g, '-$1').toLowerCase() +" "+
+						unCamelCase(p) +" "+
 						opt.duration +"ms "+
 						transition;
 
-					// Add as much duration as properties, to be able to add different durations when queue option is false
 					transitions.push(transition);
 				}
 			}
@@ -287,16 +271,8 @@ jQuery.fn.extend({
 
 			// TRANSITION++
 			if ( supportTransition && transitions.length ) {
-				// values should be concatenated to the previous one if the animation is not being queued
-				thisStyle[supportTransition.name] = transitions.join();
-				
-
-				props = jQuery.data( self, 'transition', undefined, true);
-
-				if ( !props ) {
-					props = {};
-					jQuery.data( self, 'transition', props, true);
-				}
+				transition = thisStyle[supportTransition];
+				thisStyle[supportTransition] = transitions.join() + (transition ? ',' + transition : '');
 			}
 
 			for ( p in prop ) {
@@ -334,15 +310,8 @@ jQuery.fn.extend({
 					}
 				}
 				// TRANSITION++
-				// collects fx objects to use fx.step( gotoEnd ) on transitionEnd
 				if ( opt.transition[p] ) {
-					// the rotate.js cssHooks affects the transform property.
-					// the developer needs to tell us, so that we can detect the transition end of that hook.
-					// he/she will also take care of browser normalization.
-					// note: this breaks if different hooks affect the same property, but this is unlikely to happen
-					hook = cssHooks[p];
-					// affectedProperty could also be named "targetProp", "transitionEquivalent", or anything, really.
-					props[hook && hook.affectedProperty || p] = e;
+					e.transition();
 				}
 			}
 
@@ -358,13 +327,14 @@ jQuery.fn.extend({
 
 		this.each(function() {
 			var timers = jQuery.timers,
-				i = timers.length;
+				i = timers.length,
+				supportTransition = jQuery.support.transition;
 			// go in reverse order so anything added to the queue during the loop is ignored
 			while ( i-- ) {
 				if ( timers[i].elem === this ) {
-					if (gotoEnd) {
+					if ( gotoEnd || supportTransition ) {
 						// force the next step to be the last
-						timers[i](true);
+						timers[i](gotoEnd);
 					}
 
 					timers.splice(i, 1);
@@ -500,6 +470,7 @@ jQuery.fx.prototype = {
 		t.elem = self.elem;
 
 		if ( self.options.transition[self.prop] ) {
+			jQuery.timers.push(t);
 			jQuery.style( self.elem, self.prop, to + self.unit );
 
 		} else if ( t( false, startTime ) && jQuery.timers.push(t) && !timerId ) {
@@ -551,13 +522,17 @@ jQuery.fx.prototype = {
 				this.pos = this.state = 1;
 				this.update();
 
-			// Stop a transition halfway through
-			} else if ( !gotoEnd ) {
-				hook = jQuery.cssHooks[prop];
-				prop = hook && hook.affectedProperty || prop;
-		    // yes, stoping a transition halfway through should be as simple as setting a property to its current value.
-		    // Try to call window.getComputedStyle() only once per element (in tick()?)
-		    this.elem.style[prop] = jQuery.css( this.elem, prop );
+			// TRANSITION++
+			} else {
+				clearTimeout(transition);
+				// Stop a transition halfway through
+				if ( !gotoEnd ) {
+					hook = jQuery.cssHooks[prop];
+					prop = hook && hook.affectedProperty || prop;
+			    // yes, stoping a transition halfway through should be as simple as setting a property to its current value.
+			    // Try to call window.getComputedStyle() only once per element (in tick()?)
+			    this.elem.style[prop] = jQuery.css( this.elem, prop );
+			  }
 			}
 
 			options.animatedProperties[ this.prop ] = true;
@@ -591,8 +566,13 @@ jQuery.fx.prototype = {
 				}
 
 				// TRANSITION++
-				if ( transition ) {
-					this.elem.style[jQuery.support.transition.name] = '';
+				// cleanup the transition property
+				if ( (supportTransition = jQuery.support.transition) ) {
+					transition = ',' + elem.style[supportTransition];
+					for ( p in options.transition ) {
+						transition = transition.split( unCamelCase(p) ).join('_');
+					}
+					elem.style[supportTransition] = transition.replace(/, ?_[^,]*/g, '').substr(1);
 				}
 
 				// Execute the complete function
@@ -618,6 +598,15 @@ jQuery.fx.prototype = {
 		}
 
 		return true;
+	},
+
+	// use a setTimeout to detect the end of a transition
+	// the transitionend event is unreliable
+	transition: function() {
+		var self = this;
+		self.transition[self.prop] = setTimeout(function() {
+			self.step(true);
+		}, self.options.duration);
 	}
 };
 
@@ -716,6 +705,10 @@ function defaultDisplay( nodeName ) {
 	}
 
 	return elemdisplay[ nodeName ];
+}
+
+function unCamelCase( prop ) {
+	return prop.replace(/([A-Z])/g, '-$1').toLowerCase();
 }
 
 })( jQuery );
