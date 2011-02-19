@@ -575,7 +575,7 @@ jQuery.fx.prototype = {
 
 				// TRANSITION++
 				// cleanup the transition property
-				if ( (supportTransition = jQuery.support.transition) ) {
+				if ( (supportTransition = elem.nodeType === 1 && jQuery.support.transition) ) {
 					transition = ',' + elem.style[supportTransition];
 					for ( p in options.transition ) {
 						transition = transition.split( unCamelCase(p) ).join('_');
