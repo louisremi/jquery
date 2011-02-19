@@ -162,18 +162,6 @@ test("Persist correct display value", function() {
 	});
 });
 
-test("show() resolves correct default display #8099", function() {
-	expect(3);
-	var bug8099 = jQuery("<tt/>").appendTo("#main");
-
-	equals( bug8099.css("display"), "none", "default display override for all tt" );
-	equals( bug8099.show().css("display"), "inline", "Correctly resolves display:inline" );
-
-	bug8099.remove();
-
-	equals( jQuery("#foo").hide().show().css("display"), "block", "Correctly resolves display:block after hide/show" );
-});
-
 test("animate(Hash, Object, Function)", function() {
 	expect(1);
 	stop();
@@ -570,21 +558,54 @@ jQuery.checkOverflowDisplay = function(){
 	start();
 }
 
-test("support negative values < -10000 (bug #7193)", function () {
-	expect(1);
-	stop();
+test( "jQuery.fx.prototype.cur()", 6, function() {
+	var div = jQuery( "<div></div>" ).appendTo( "#main" ).css({
+			color: "#ABC",
+			border: "5px solid black",
+			left: "auto",
+			marginBottom: "-11000px"
+		})[0];
 
-	jQuery.extend(jQuery.fx.step, {
-		"marginBottom": function(fx) {
-			equals( fx.cur(), -11000, "Element has margin-bottom of -11000" );
-			delete jQuery.fx.step.marginBottom;
+	equals(
+		( new jQuery.fx( div, {}, "color" ) ).cur(),
+		jQuery.css( div, "color" ),
+		"Return the same value as jQuery.css for complex properties (bug #7912)"
+	);
+
+	strictEqual(
+		( new jQuery.fx( div, {}, "borderLeftWidth" ) ).cur(),
+		5,
+		"Return simple values parsed as Float"
+	);
+
+	// backgroundPosition actually returns 0% 0% in most browser
+	// this fakes a "" return
+	jQuery.cssHooks.backgroundPosition = {
+		get: function() {
+			ok( true, "hook used" );
+			return "";
 		}
-	});
+	};
 
-	jQuery("#main").css("marginBottom", "-11000px").animate({ marginBottom: "-11001px" }, {
-		duration: 1,
-		complete: start
-	});
+	strictEqual(
+		( new jQuery.fx( div, {}, "backgroundPosition" ) ).cur(),
+		0,
+		"Return 0 when jQuery.css returns an empty string"
+	);
+
+	delete jQuery.cssHooks.backgroundPosition;
+
+	strictEqual(
+		( new jQuery.fx( div, {}, "left" ) ).cur(),
+		0,
+		"Return 0 when jQuery.css returns 'auto'"
+	);
+
+	equals(
+		( new jQuery.fx( div, {}, "marginBottom" ) ).cur(),
+		-11000,
+		"support negative values < -10000 (bug #7193)"
+	);
 });
 
 test("JS Overflow and Display", function() {
