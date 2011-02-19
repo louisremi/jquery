@@ -1,8 +1,4 @@
-/* It is complicated to make transition work with opt.queue == false because:
- * - the transition property need to be modified on every transitionend instead of once for all on complete
- * - it is hard to determine when a particular animation completed
- *
- * Cases where transition should be disabled:
+/* Cases where transition is disabled:
  * - in incompatible browsers (Opera 11 included)
  * - when there is a special easing
  * - when there is a step function
@@ -309,10 +305,6 @@ jQuery.fn.extend({
 						e.custom( startTime, start, val, "" );
 					}
 				}
-				// TRANSITION++
-				if ( opt.transition[p] ) {
-					e.transition();
-				}
 			}
 
 			// For JS strict compliance
@@ -454,12 +446,14 @@ jQuery.fx.prototype = {
 	// Start an animation from one number to another
 	custom: function( startTime, from, to, unit ) {
 		var self = this,
-			fx = jQuery.fx;
+			fx = jQuery.fx,
+			transition = self.options.transition,
+			prop = self.prop;
 
 		self.startTime = startTime;
 		self.start = from;
 		self.end = to;
-		self.unit = unit || self.unit || ( jQuery.cssNumber[ self.prop ] ? "" : "px" );
+		self.unit = unit || self.unit || ( jQuery.cssNumber[ prop ] ? "" : "px" );
 		self.now = self.start;
 		self.pos = self.state = 0;
 
@@ -469,9 +463,15 @@ jQuery.fx.prototype = {
 
 		t.elem = self.elem;
 
-		if ( self.options.transition[self.prop] ) {
+		if ( transition[prop] ) {
 			jQuery.timers.push(t);
-			jQuery.style( self.elem, self.prop, to + self.unit );
+			jQuery.style( self.elem, prop, to + self.unit );
+
+			// use a setTimeout to detect the end of a transition
+			// the transitionend event is unreliable
+			transition[prop] = setTimeout(function() {
+				self.step(true);
+			}, self.options.duration);
 
 		} else if ( t( false, startTime ) && jQuery.timers.push(t) && !timerId ) {
 			timerId = setInterval(fx.tick, fx.interval);
@@ -598,15 +598,6 @@ jQuery.fx.prototype = {
 		}
 
 		return true;
-	},
-
-	// use a setTimeout to detect the end of a transition
-	// the transitionend event is unreliable
-	transition: function() {
-		var self = this;
-		self.transition[self.prop] = setTimeout(function() {
-			self.step(true);
-		}, self.options.duration);
 	}
 };
 
