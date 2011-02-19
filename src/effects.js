@@ -1,5 +1,6 @@
 /* Cases where transition is disabled:
  * - in incompatible browsers (Opera 11 included)
+ * - when the animated object is not an element
  * - when there is a special easing
  * - when there is a step function
  * - when jQuery.fx.off is true (should work out of the box)
@@ -235,7 +236,7 @@ jQuery.fn.extend({
 
 				// TRANSITION++
 				// prevent transition when a special easing is supplied
-				transition = supportTransition && (
+				transition = supportTransition && isElement && (
 					// we could use a hash to convert the names
 					easing == 'swing' ? 'ease':
 					easing == 'linear' ? easing:
