@@ -250,9 +250,6 @@ jQuery.fn.extend({
 					hook = cssHooks[p];
 					p = hook && hook.affectedProperty || p;
 
-					// explicitely set the property to it's current computed value to workaround bugzil.la/571344
-					thisStyle[p] = jQuery.css( self, p );
-
 					transition =
 						unCamelCase(p) +" "+
 						opt.duration +"ms "+
@@ -451,7 +448,8 @@ jQuery.fx.prototype = {
 			prop = self.prop,
 			// TRANSITION++
 			transition = self.options.transition,
-			timers = jQuery.timers;
+			timers = jQuery.timers,
+			hook;
 
 		self.startTime = startTime;
 		self.start = from;
@@ -468,6 +466,12 @@ jQuery.fx.prototype = {
 
 		if ( transition[prop] ) {
 			timers.push(t);
+
+			// explicitely set the property to it's current computed value to workaround bugzil.la/571344
+			hook = jQuery.cssHooks[prop];
+			prop = hook && hook.affectedProperty || prop;
+			self.elem.style[prop] = jQuery.css( self.elem, prop );
+
 			// Don't set the style immediatly, the transition property has not been filled yet
 			setTimeout(function() {
 				jQuery.style( self.elem, prop, to + self.unit );
@@ -478,7 +482,7 @@ jQuery.fx.prototype = {
 			transition[prop] = setTimeout(function() {
 				timers.splice(timers.indexOf(t), 1);
 				self.step(true);
-			// add an unperceptible delay to make sure the offsetWidth/Height test passes in Firefox
+			// add an unperceptible delay to help some tests to pass in Firefox
 			}, self.options.duration + 30);
 
 		} else if ( t( false, startTime ) && timers.push(t) && !timerId ) {
