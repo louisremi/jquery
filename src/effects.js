@@ -447,8 +447,10 @@ jQuery.fx.prototype = {
 	custom: function( startTime, from, to, unit ) {
 		var self = this,
 			fx = jQuery.fx,
+			prop = self.prop,
+			// TRANSITION++
 			transition = self.options.transition,
-			prop = self.prop;
+			timers = jQuery.timers;
 
 		self.startTime = startTime;
 		self.start = from;
@@ -464,7 +466,7 @@ jQuery.fx.prototype = {
 		t.elem = self.elem;
 
 		if ( transition[prop] ) {
-			jQuery.timers.push(t);
+			timers.push(t);
 			// Don't set the style immediatly, the transition property has not been filled yet
 			setTimeout(function() {
 				jQuery.style( self.elem, prop, to + self.unit );
@@ -473,10 +475,12 @@ jQuery.fx.prototype = {
 			// use a setTimeout to detect the end of a transition
 			// the transitionend event is unreliable
 			transition[prop] = setTimeout(function() {
+				timers.splice(timers.indexOf(t), 1);
 				self.step(true);
-			}, self.options.duration);
+			// add an unperceptible delay to make sure the offsetWidth/Height test passes in Firefox
+			}, self.options.duration + 30);
 
-		} else if ( t( false, startTime ) && jQuery.timers.push(t) && !timerId ) {
+		} else if ( t( false, startTime ) && timers.push(t) && !timerId ) {
 			timerId = setInterval(fx.tick, fx.interval);
 		}
 	},
