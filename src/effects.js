@@ -265,12 +265,6 @@ jQuery.fn.extend({
 				thisStyle.overflow = "hidden";
 			}
 
-			// TRANSITION++
-			if ( supportTransition && transitions.length ) {
-				transition = thisStyle[supportTransition];
-				thisStyle[supportTransition] = transitions.join() + (transition ? ',' + transition : '');
-			}
-
 			for ( p in prop ) {
 				e = new fx( self, opt, p );
 
@@ -305,6 +299,12 @@ jQuery.fn.extend({
 						e.custom( startTime, start, val, "" );
 					}
 				}
+			}
+
+			// TRANSITION++
+			if ( supportTransition && transitions.length ) {
+				transition = thisStyle[supportTransition];
+				thisStyle[supportTransition] = transitions.join() + (transition ? ',' + transition : '');
 			}
 
 			// For JS strict compliance
@@ -465,7 +465,10 @@ jQuery.fx.prototype = {
 
 		if ( transition[prop] ) {
 			jQuery.timers.push(t);
-			jQuery.style( self.elem, prop, to + self.unit );
+			// Don't set the style immediatly, the transition property has not been filled yet
+			setTimeout(function() {
+				jQuery.style( self.elem, prop, to + self.unit );
+			});
 
 			// use a setTimeout to detect the end of a transition
 			// the transitionend event is unreliable
