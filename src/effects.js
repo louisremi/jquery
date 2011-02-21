@@ -248,7 +248,7 @@ jQuery.fn.extend({
 					opt.transition[p] = true;
 
 					hook = cssHooks[p];
-					p = hook && hook.affectedProperty || p;
+					p = hook && hook.realProperty || p;
 
 					transition =
 						unCamelCase(p) +" "+
@@ -469,7 +469,7 @@ jQuery.fx.prototype = {
 
 			// explicitely set the property to it's current computed value to workaround bugzil.la/571344
 			hook = jQuery.cssHooks[prop];
-			prop = hook && hook.affectedProperty || prop;
+			prop = hook && hook.realProperty || prop;
 			self.elem.style[prop] = jQuery.css( self.elem, prop );
 
 			// Don't set the style immediatly, the transition property has not been filled yet
@@ -540,7 +540,7 @@ jQuery.fx.prototype = {
 				// Stop a transition halfway through
 				if ( !gotoEnd ) {
 					hook = jQuery.cssHooks[prop];
-					prop = hook && hook.affectedProperty || prop;
+					prop = hook && hook.realProperty || prop;
 			    // yes, stoping a transition halfway through should be as simple as setting a property to its current value.
 			    // Try to call window.getComputedStyle() only once per element (in tick()?)
 			    this.elem.style[prop] = jQuery.css( this.elem, prop );
