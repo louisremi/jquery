@@ -162,7 +162,7 @@ jQuery.fn.extend({
 				supportTransition = !opt.step && jQuery.support.transition,
 				transition,
 				transitions = [],
-				hook, real, lower;
+				easing, real, lower;
 
 			// will store per property easing and be used to determine when an animation is complete
 			opt.animatedProperties = {};
@@ -185,10 +185,10 @@ jQuery.fn.extend({
 
 				// easing resolution: per property > opt.specialEasing > opt.easing > 'swing' (default)
 				if ( jQuery.isArray( val ) ) {
-					opt.animatedProperties[ name ] = val[ 1 ];
+					easing = opt.animatedProperties[ name ] = val[ 1 ];
 					val = prop[ name ] = val[ 0 ];
 				} else {
-					opt.animatedProperties[ name ] = opt.specialEasing && opt.specialEasing[ name ] || opt.easing || 'swing';
+					easing = opt.animatedProperties[ name ] = opt.specialEasing && opt.specialEasing[ name ] || opt.easing || 'swing';
 				}
 
 				// TRANSITION++
