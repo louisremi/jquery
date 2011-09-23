@@ -132,11 +132,12 @@ test("attr(String)", function() {
 
 if ( !isLocal ) {
 	test("attr(String) in XML Files", function() {
-		expect(2);
+		expect(3);
 		stop();
 		jQuery.get("data/dashboard.xml", function( xml ) {
-			equals( jQuery( "locations", xml ).attr("class"), "foo", "Check class attribute in XML document" );
-			equals( jQuery( "location", xml ).attr("for"), "bar", "Check for attribute in XML document" );
+			equal( jQuery( "locations", xml ).attr("class"), "foo", "Check class attribute in XML document" );
+			equal( jQuery( "location", xml ).attr("for"), "bar", "Check for attribute in XML document" );
+			equal( jQuery( "location", xml ).attr("checked"), "different", "Check that hooks are not attached in XML document" );
 			start();
 		});
 	});
@@ -161,7 +162,7 @@ test("attr(Hash)", function() {
 });
 
 test("attr(String, Object)", function() {
-	expect(69);
+	expect(73);
 
 	var div = jQuery("div").attr("foo", "bar"),
 		fail = false;
@@ -229,13 +230,20 @@ test("attr(String, Object)", function() {
 	jQuery("#name").attr("maxLength", "10");
 	equals( document.getElementById("name").maxLength, 10, "Set maxlength attribute" );
 
-	var $text = jQuery("#text1").attr("autofocus", true);
-	if ( "autofocus" in $text[0] ) {
-		equals( $text.attr("autofocus"), "autofocus", "Set boolean attributes to the same name");
-	} else {
-		equals( $text.attr("autofocus"), undefined, "autofocus stays undefined in browsers that do not support it(F<4)");
-	}
-	equals( $text.attr("autofocus", false).attr("autofocus"), undefined, "Setting autofocus attribute to false removes it");
+	// HTML5 boolean attributes
+	var $text = jQuery("#text1").attr({
+		"autofocus": true,
+		"required": true
+	});
+	equal( $text.attr("autofocus"), "autofocus", "Set boolean attributes to the same name" );
+	equal( $text.attr("autofocus", false).attr("autofocus"), undefined, "Setting autofocus attribute to false removes it" );
+	equal( $text.attr("required"), "required", "Set boolean attributes to the same name" );
+	equal( $text.attr("required", false).attr("required"), undefined, "Setting required attribute to false removes it" );
+
+	var $details = jQuery("<details open></details>").appendTo("#qunit-fixture");
+	equal( $details.attr("open"), "open", "open attribute presense indicates true" );
+	equal( $details.attr("open", false).attr("open"), undefined, "Setting open attribute to false removes it" );
+
 	equals( $text.attr("data-something", true).data("something"), true, "Setting data attributes are not affected by boolean settings");
 	equals( $text.attr("data-another", false).data("another"), false, "Setting data attributes are not affected by boolean settings" );
 	equals( $text.attr("aria-disabled", false).attr("aria-disabled"), "false", "Setting aria attributes are not affected by boolean settings");
@@ -761,12 +769,15 @@ test("val(select) after form.reset() (Bug #2551)", function() {
 }); 
 
 var testAddClass = function(valueObj) {
-	expect(5);
+	expect(9);
+
 	var div = jQuery("div");
 	div.addClass( valueObj("test") );
 	var pass = true;
 	for ( var i = 0; i < div.size(); i++ ) {
-	 if ( div.get(i).className.indexOf("test") == -1 ) pass = false;
+		if ( !~div.get(i).className.indexOf("test") ) {
+			pass = false;
+		}
 	}
 	ok( pass, "Add Class" );
 
@@ -787,6 +798,19 @@ var testAddClass = function(valueObj) {
 	div.attr("class", "foo");
 	div.addClass( valueObj("bar baz") );
 	equals( div.attr("class"), "foo bar baz", "Make sure there isn't too much trimming." );
+	
+	div.removeClass();
+	div.addClass( valueObj("foo") ).addClass( valueObj("foo") )
+	equal( div.attr("class"), "foo", "Do not add the same class twice in separate calls." );
+
+	div.addClass( valueObj("fo") );
+	equal( div.attr("class"), "foo fo", "Adding a similar class does not get interrupted." );
+	div.removeClass().addClass("wrap2");
+	ok( div.addClass("wrap").hasClass("wrap"), "Can add similarly named classes");
+
+	div.removeClass();
+	div.addClass( valueObj("bar bar") );
+	equal( div.attr("class"), "bar", "Do not add the same class twice in the same call." );
 };
 
 test("addClass(String)", function() {
@@ -949,7 +973,7 @@ test("toggleClass(Function[, boolean])", function() {
 test("toggleClass(Fucntion[, boolean]) with incoming value", function() {
 	expect(14);
 
-	var e = jQuery("#firstp"), old = e.attr("class");
+	var e = jQuery("#firstp"), old = e.attr("class") || "";
 	ok( !e.is(".test"), "Assert class not present" );
 
 	e.toggleClass(function(i, val) {
