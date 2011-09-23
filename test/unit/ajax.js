@@ -1760,7 +1760,12 @@ test("jQuery.post - data", 3, function() {
 				strictEqual( data, "test%5Blength%5D=7&test%5Bfoo%5D=bar", "Check if a sub-object with a length param is serialized correctly");
 			}
 		})
-	).then( start, start );
+	// The more compact then( start, start ) doesn't work in IE7
+	).then( function() {
+		start();
+	}, function() {
+		start();
+	} );
 
 });
 
@@ -2074,6 +2079,35 @@ test( "jQuery.ajax - Location object as url (#7531)", 1, function () {
 	} catch (e) {}
 
 	ok( success, "document.location did not generate exception" );
+});
+
+test( "jQuery.ajax - Context with circular references (#9887)", 2, function () {
+	var success = false,
+		context = {};
+	context.field = context;
+	try {
+		success = !jQuery.ajax( "non-existing", {
+			context: context,
+			beforeSend: function() {
+				ok( this === context, "context was not deep extended" );
+				return false;
+			}
+		});
+	} catch (e) { console.log( e ); }
+	ok( success, "context with circular reference did not generate an exception" );
+});
+
+test( "jQuery.ajax - statusText" , 4, function() {
+	stop();
+	jQuery.ajax( url( "data/statusText.php?status=200&text=Hello" ) ).done(function( _, statusText, jqXHR ) {
+		strictEqual( statusText, "success", "callback status text ok for success" );
+		ok( jqXHR.statusText === "Hello" || jQuery.browser.safari && jqXHR.statusText === "OK", "jqXHR status text ok for success (" + jqXHR.statusText + ")" );
+		jQuery.ajax( url( "data/statusText.php?status=404&text=World" ) ).fail(function( jqXHR, statusText ) {
+			strictEqual( statusText, "error", "callback status text ok for error" );
+			ok( jqXHR.statusText === "World" || jQuery.browser.safari && jqXHR.statusText === "Not Found", "jqXHR status text ok for error (" + jqXHR.statusText + ")" );
+			start();
+		});
+	});
 });
 
 test( "jQuery.ajax - statusCode" , function() {

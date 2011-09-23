@@ -11,7 +11,7 @@ test("disconnected node", function() {
 
 var supportsScroll = false;
 
-testoffset("absolute"/* in iframe */, function($, iframe) {
+testoffset("absolute", function($, iframe) {
 	expect(4);
 
 	var doc = iframe.document, tests;
@@ -267,8 +267,6 @@ testoffset("static", function( jQuery ) {
 testoffset("fixed", function( jQuery ) {
 	expect(30);
 
-	jQuery.offset.initialize();
-
 	var tests = [
 		{ id: "#fixed-1", top: 1001, left: 1001 },
 		{ id: "#fixed-2", top: 1021, left: 1021 }
@@ -390,7 +388,7 @@ testoffset("scroll", function( jQuery, win ) {
 	equals( jQuery(window).scrollLeft(), 0, "jQuery(window).scrollLeft() other window" );
 	equals( jQuery(document).scrollTop(), 0, "jQuery(window).scrollTop() other document" );
 	equals( jQuery(document).scrollLeft(), 0, "jQuery(window).scrollLeft() other document" );
-	
+
 	// Tests scrollTop/Left with empty jquery objects
 	notEqual( jQuery().scrollTop(100), null, "jQuery().scrollTop(100) testing setter on empty jquery object" );
 	notEqual( jQuery().scrollLeft(100), null, "jQuery().scrollLeft(100) testing setter on empty jquery object" );
@@ -403,8 +401,8 @@ testoffset("scroll", function( jQuery, win ) {
 testoffset("body", function( jQuery ) {
 	expect(2);
 
-	equals( jQuery("body").offset().top, 1, "jQuery('#body').offset().top" );
-	equals( jQuery("body").offset().left, 1, "jQuery('#body').offset().left" );
+	equals( jQuery("body").offset().top, 0, "jQuery('#body').offset().top" );
+	equals( jQuery("body").offset().left, 0, "jQuery('#body').offset().left" );
 });
 
 test("Chaining offset(coords) returns jQuery object", function() {
@@ -443,12 +441,12 @@ test("offsetParent", function(){
 
 test("fractions (see #7730 and #7885)", function() {
 	expect(2);
-	
+
 	jQuery('body').append('<div id="fractions"/>');
-	
+
 	var expected = { top: 1000, left: 1000 };
 	var div = jQuery('#fractions');
-	
+
 	div.css({
 		position: 'absolute',
 		left: '1000.7432222px',
@@ -456,14 +454,14 @@ test("fractions (see #7730 and #7885)", function() {
 		width: 100,
 		height: 100
 	});
-	
+
 	div.offset(expected);
-	
+
 	var result = div.offset();
 
 	equals( result.top, expected.top, "Check top" );
 	equals( result.left, expected.left, "Check left" );
-	
+
 	div.remove();
 });
 

@@ -15,7 +15,7 @@ test("find(String)", function() {
 
 test("find(node|jQuery object)", function() {
 	expect( 11 );
-	
+
 	var $foo = jQuery("#foo"),
 		$blog = jQuery(".blogTest"),
 		$first = jQuery("#first"),
@@ -29,16 +29,16 @@ test("find(node|jQuery object)", function() {
 	ok( $foo.find( $two ).is(".blogTest"), "Find returns only nodes within #foo" );
 	ok( $fooTwo.find( $blog ).is(".blogTest"), "Blog is part of the collection, but also within foo" );
 	ok( $fooTwo.find( $blog[0] ).is(".blogTest"), "Blog is part of the collection, but also within foo(node)" );
-	
+
 	equals( $two.find( $foo ).length, 0, "Foo is not in two elements" );
 	equals( $two.find( $foo[0] ).length, 0, "Foo is not in two elements(node)" );
 	equals( $two.find( $first ).length, 0, "first is in the collection and not within two" );
 	equals( $two.find( $first ).length, 0, "first is in the collection and not within two(node)" );
-	
+
 });
 
 test("is(String|undefined)", function() {
-	expect(27);
+	expect(29);
 	ok( jQuery("#form").is("form"), "Check for element: A form must be a form" );
 	ok( !jQuery("#form").is("div"), "Check for element: A form is not a div" );
 	ok( jQuery("#mark").is(".blog"), "Check for class: Expected class 'blog'" );
@@ -63,12 +63,15 @@ test("is(String|undefined)", function() {
 	ok( !jQuery("#foo").is(""), "Expected false for an invalid expression - \"\"" );
 	ok( !jQuery("#foo").is(undefined), "Expected false for an invalid expression - undefined" );
 	ok( !jQuery("#foo").is({ plain: "object" }), "Check passing invalid object" );
-	
+
 	// test is() with comma-seperated expressions
 	ok( jQuery("#en").is("[lang=\"en\"],[lang=\"de\"]"), "Comma-seperated; Check for lang attribute: Expect en or de" );
 	ok( jQuery("#en").is("[lang=\"de\"],[lang=\"en\"]"), "Comma-seperated; Check for lang attribute: Expect en or de" );
 	ok( jQuery("#en").is("[lang=\"en\"] , [lang=\"de\"]"), "Comma-seperated; Check for lang attribute: Expect en or de" );
 	ok( jQuery("#en").is("[lang=\"de\"] , [lang=\"en\"]"), "Comma-seperated; Check for lang attribute: Expect en or de" );
+
+	ok( !jQuery(window).is('a'), "Checking is on a window does not throw an exception(#10178)" );
+	ok( !jQuery(document).is('a'), "Checking is on a document does not throw an exception(#10178)" );
 });
 
 test("is(jQuery)", function() {
@@ -88,7 +91,7 @@ test("is(jQuery)", function() {
 	ok( !jQuery("#radio1").is( jQuery("input:checked") ), "Check for pseudoclass: Expected not checked" );
 	ok( jQuery("#foo").is( jQuery("div:has(p)") ), "Check for child: Expected a child 'p' element" );
 	ok( !jQuery("#foo").is( jQuery("div:has(ul)") ), "Check for child: Did not expect 'ul' element" );
-	
+
 	// Some raw elements
 	ok( jQuery("#form").is( jQuery("form")[0] ), "Check for element: A form is a form" );
 	ok( !jQuery("#form").is( jQuery("div")[0] ), "Check for element: A form is not a div" );
@@ -98,10 +101,52 @@ test("is(jQuery)", function() {
 	ok( !jQuery("#simon").is( jQuery(".blogTest")[0] ), "Check for multiple classes: Expected classes 'blog' and 'link', but not 'blogTest'" );
 });
 
-test("index()", function() {
-	expect(1);
+test("is() with positional selectors", function() {
+	expect(23);
+	
+	var html = jQuery( 
+				'<p id="posp"><a class="firsta" href="#"><em>first</em></a><a class="seconda" href="#"><b>test</b></a><em></em></p>' 
+			).appendTo( "body" ),
+		isit = function(sel, match, expect) {
+			equal( jQuery( sel ).is( match ), expect, "jQuery( " + sel + " ).is( " + match + " )" );
+		};
 
-	equals( jQuery("#text2").index(), 2, "Returns the index of a child amongst its siblings" )
+	isit( "#posp", "#posp:first", true );
+	isit( "#posp", "#posp:eq(2)", false );
+	isit( "#posp", "#posp a:first", false );
+
+	isit( "#posp .firsta", "#posp a:first", true );
+	isit( "#posp .firsta", "#posp a:last", false );
+	isit( "#posp .firsta", "#posp a:even", true );
+	isit( "#posp .firsta", "#posp a:odd", false );
+	isit( "#posp .firsta", "#posp a:eq(0)", true );
+	isit( "#posp .firsta", "#posp a:eq(9)", false );
+	isit( "#posp .firsta", "#posp em:eq(0)", false );
+	isit( "#posp .firsta", "#posp em:first", false );
+	isit( "#posp .firsta", "#posp:first", false );
+
+	isit( "#posp .seconda", "#posp a:first", false );
+	isit( "#posp .seconda", "#posp a:last", true );
+	isit( "#posp .seconda", "#posp a:gt(0)", true );
+	isit( "#posp .seconda", "#posp a:lt(5)", true );
+	isit( "#posp .seconda", "#posp a:lt(1)", false );
+
+	isit( "#posp em", "#posp a:eq(0) em", true );
+	isit( "#posp em", "#posp a:lt(1) em", true );
+	isit( "#posp em", "#posp a:gt(1) em", false );
+	isit( "#posp em", "#posp a:first em", true );
+	isit( "#posp em", "#posp a em:last", true );
+	isit( "#posp em", "#posp a em:eq(2)", false );
+
+	html.remove();
+});
+
+test("index()", function() {
+	expect( 2 );
+
+	equal( jQuery("#text2").index(), 2, "Returns the index of a child amongst its siblings" );
+
+	equal( jQuery("<div/>").index(), -1, "Node without parent returns -1" );
 });
 
 test("index(Object|String|undefined)", function() {
@@ -140,7 +185,7 @@ test("filter(Selector|undefined)", function() {
 	same( jQuery("#form input").filter(":checked").get(), q("radio2", "check1"), "filter(String)" );
 	same( jQuery("p").filter("#ap, #sndp").get(), q("ap", "sndp"), "filter('String, String')" );
 	same( jQuery("p").filter("#ap,#sndp").get(), q("ap", "sndp"), "filter('String,String')" );
-	
+
 	same( jQuery("p").filter(null).get(),      [], "filter(null) should return an empty jQuery object");
 	same( jQuery("p").filter(undefined).get(), [], "filter(undefined) should return an empty jQuery object");
 	same( jQuery("p").filter(0).get(),         [], "filter(0) should return an empty jQuery object");
@@ -179,7 +224,51 @@ test("filter(jQuery)", function() {
 
 	var elements = jQuery("#text1");
 	same( jQuery("#form input").filter(elements).get(), q("text1"), "filter(Element)" );
-})
+});
+
+
+test("filter() with positional selectors", function() {
+	expect(19);
+
+	var html = jQuery('' +
+		'<p id="posp">' +
+			'<a class="firsta" href="#">' +
+				'<em>first</em>' +
+			'</a>' +
+			'<a class="seconda" href="#">' +
+				'<b>test</b>' +
+			'</a>' +
+			'<em></em>' +
+		'</p>').appendTo( "body" ),
+		filterit = function(sel, filter, length) {
+			equal( jQuery( sel ).filter( filter ).length, length, "jQuery( " + sel + " ).filter( " + filter + " )" );
+		};
+
+	filterit( "#posp", "#posp:first", 1);
+	filterit( "#posp", "#posp:eq(2)", 0 );
+	filterit( "#posp", "#posp a:first", 0 );
+
+	// Keep in mind this is within the selection and
+	// not in relation to other elements (.is() is a different story)
+	filterit( "#posp .firsta", "#posp a:first", 1 );
+	filterit( "#posp .firsta", "#posp a:last", 1 );
+	filterit( "#posp .firsta", "#posp a:last-child", 0 );
+	filterit( "#posp .firsta", "#posp a:even", 1 );
+	filterit( "#posp .firsta", "#posp a:odd", 0 );
+	filterit( "#posp .firsta", "#posp a:eq(0)", 1 );
+	filterit( "#posp .firsta", "#posp a:eq(9)", 0 );
+	filterit( "#posp .firsta", "#posp em:eq(0)", 0 );
+	filterit( "#posp .firsta", "#posp em:first", 0 );
+	filterit( "#posp .firsta", "#posp:first", 0 );
+
+	filterit( "#posp .seconda", "#posp a:first", 1 );
+	filterit( "#posp .seconda", "#posp em:first", 0 );
+	filterit( "#posp .seconda", "#posp a:last", 1 );
+	filterit( "#posp .seconda", "#posp a:gt(0)", 0 );
+	filterit( "#posp .seconda", "#posp a:lt(5)", 1 );
+	filterit( "#posp .seconda", "#posp a:lt(1)", 1 );
+	html.remove();
+});
 
 test("closest()", function() {
 	expect(13);
@@ -323,13 +412,14 @@ test("andSelf()", function() {
 });
 
 test("siblings([String])", function() {
-	expect(5);
+	expect(6);
 	same( jQuery("#en").siblings().get(), q("sndp", "sap"), "Check for siblings" );
 	same( jQuery("#sndp").siblings(":has(code)").get(), q("sap"), "Check for filtered siblings (has code child element)" );
 	same( jQuery("#sndp").siblings(":has(a)").get(), q("en", "sap"), "Check for filtered siblings (has anchor child element)" );
 	same( jQuery("#foo").siblings("form, b").get(), q("form", "floatTest", "lengthtest", "name-tests", "testForm"), "Check for multiple filters" );
 	var set = q("sndp", "en", "sap");
 	same( jQuery("#en, #sndp").siblings().get(), set, "Check for unique results from siblings" );
+	deepEqual( jQuery("#option5a").siblings("option[data-attr]").get(), q("option5c"), "Has attribute selector in siblings (#9261)" );
 });
 
 test("children([String])", function() {
@@ -530,7 +620,7 @@ test("add(String|Element|Array|undefined)", function() {
 
 test("add(String, Context)", function() {
 	expect(6);
-	
+
 	deepEqual( jQuery( "#firstp" ).add( "#ap" ).get(), q( "firstp", "ap" ), "Add selector to selector " );
 	deepEqual( jQuery( document.getElementById("firstp") ).add( "#ap" ).get(), q( "firstp", "ap" ), "Add gEBId to selector" );
 	deepEqual( jQuery( document.getElementById("firstp") ).add( document.getElementById("ap") ).get(), q( "firstp", "ap" ), "Add gEBId to gEBId" );
