@@ -1,3 +1,12 @@
+/* Cases where transition is disabled:
+ * - in incompatible browsers (Opera 11 included)
+ * - when the animated object is not an element
+ * - when there is a special easing
+ * - when there is a step function
+ * - when jQuery.fx.off is true (should work out of the box)
+ *
+ * jQuery.fx.stop() will stop animations instead of pausing them (undocumented method and behavior anyway).
+ */
 (function( jQuery ) {
 
 var elemdisplay = {},
@@ -14,6 +23,19 @@ var elemdisplay = {},
 		[ "opacity" ]
 	],
 	fxNow;
+
+// ++TRANSITION++
+// Following feature test code should be moved to support.js
+var div = document.createElement( "div" ),
+	divStyle = div.style,
+	trans = "Transition";
+// Only test for transition support in Firefox and Webkit
+// as we know for sure that Opera has too much bugs (see http://csstransition.net)
+// and there's no guarantee that first IE implementation will be bug-free
+jQuery.support.transition =
+	"Moz"+trans in divStyle ? "Moz"+trans:
+	"Webkit"+trans in divStyle ? "Webkit"+trans:
+	false;
 
 jQuery.fn.extend({
 	show: function( speed, easing, callback ) {
@@ -145,10 +167,22 @@ jQuery.fn.extend({
 				hidden = isElement && jQuery(this).is(":hidden"),
 				name, val, p, e, hooks, replace,
 				parts, start, end, unit,
-				method;
+				method,
+				// ++TRANSITION++
+				cssProps = jQuery.cssProps,
+				// disable transition if a step option is supplied
+				supportTransition = !opt.step && jQuery.support.transition,
+				transition,
+				transitions = [],
+				easing, real, lower;
 
 			// will store per property easing and be used to determine when an animation is complete
 			opt.animatedProperties = {};
+			// ++TRANSITION++
+			// transition is enabled per property, when:
+			// - there is no step function for the animation
+			// - there is no special easing for the property
+			opt.transition = {};
 
 			// first pass over propertys to expand / normalize
 			for ( p in prop ) {
@@ -176,10 +210,38 @@ jQuery.fn.extend({
 				val = prop[ name ];
 				// easing resolution: per property > opt.specialEasing > opt.easing > 'swing' (default)
 				if ( jQuery.isArray( val ) ) {
-					opt.animatedProperties[ name ] = val[ 1 ];
+					/* ++TRANSITION++ */ easing = opt.animatedProperties[ name ] = val[ 1 ];
 					val = prop[ name ] = val[ 0 ];
 				} else {
-					opt.animatedProperties[ name ] = opt.specialEasing && opt.specialEasing[ name ] || opt.easing || 'swing';
+					/* ++TRANSITION++ */ easing = opt.animatedProperties[ name ] = opt.specialEasing && opt.specialEasing[ name ] || opt.easing || 'swing';
+				}
+
+				// ++TRANSITION++
+				// prevent transition when a special easing is supplied
+				transition = supportTransition && isElement && opt.duration > 0 && (
+					// we could use a hash to convert the names
+					easing == 'swing' ? 'ease':
+					easing == 'linear' ? easing:
+					false
+				);
+
+				// collect the properties to be added to elem.style.transition...
+				if ( transition ) {
+					real = cssProps[p] || p;
+
+					lower = real.replace(/([A-Z])/g, '-$1').toLowerCase();
+
+					transition =
+						lower +" "+
+						opt.duration +"ms "+
+						transition;
+
+					opt.transition[p] = {
+						lower: lower,
+						real: real
+					};
+
+					transitions.push(transition);
 				}
 
 				if ( val === "hide" && hidden || val === "show" && !hidden ) {
@@ -258,6 +320,16 @@ jQuery.fn.extend({
 				}
 			}
 
+			// ++TRANSITION++
+			if ( supportTransition && transitions.length ) {
+				transition = this.style[supportTransition];
+				this.style[supportTransition] = transitions.join() + (transition ? ',' + transition : '');
+				// Once the transition property has been set, it's time to set all animated style properties
+				for ( p in opt.transition ) {
+					jQuery.style.apply( null, opt.transition[ p ].styleToSet );
+				}
+			}
+
 			// For JS strict compliance
 			return true;
 		}
@@ -281,7 +353,9 @@ jQuery.fn.extend({
 			var index,
 				hadTimers = false,
 				timers = jQuery.timers,
-				data = jQuery._data( this );
+				data = jQuery._data( this ),
+				// ++TRANSITION++
+				supportTransition = jQuery.support.transition;
 
 			// clear marker counters if we know they won't be
 			if ( !gotoEnd ) {
@@ -305,12 +379,14 @@ jQuery.fn.extend({
 			}
 
 			for ( index = timers.length; index--; ) {
+				// ++TRANSITION++
 				if ( timers[ index ].elem === this && (type == null || timers[ index ].queue === type) ) {
-					if ( gotoEnd ) {
+					if ( gotoEnd || supportTransition ) {
 
 						// force the next step to be the last
-						timers[ index ]( true );
-					} else {
+						timers[ index ]( /* ++TRANSITION++*/ gotoEnd );
+					}
+					if ( !gotoEnd ) {
 						timers[ index ].saveState();
 					}
 					hadTimers = true;
@@ -447,13 +523,17 @@ jQuery.fx.prototype = {
 	// Start an animation from one number to another
 	custom: function( from, to, unit ) {
 		var self = this,
-			fx = jQuery.fx;
+			fx = jQuery.fx,
+			// ++TRANSITION++
+			transition = self.options.transition,
+			// prop has to be saved, or it'll be undefined in the setTimeout closure
+			prop = this.prop;
 
 		this.startTime = fxNow || createFxNow();
 		this.end = to;
 		this.now = this.start = from;
 		this.pos = this.state = 0;
-		this.unit = unit || this.unit || ( jQuery.cssNumber[ this.prop ] ? "" : "px" );
+		this.unit = unit || this.unit || ( jQuery.cssNumber[ prop ] ? "" : "px" );
 
 		function t( gotoEnd ) {
 			return self.step( gotoEnd );
@@ -467,7 +547,28 @@ jQuery.fx.prototype = {
 			}
 		};
 
-		if ( t() && jQuery.timers.push(t) && !timerId ) {
+		// ++TRANSITION++
+		if ( ( t.transition = transition[ prop ] ) ) {
+			jQuery.timers.push( t );
+
+			// explicitly set the property to it's current computed value to workaround bugzil.la/571344
+			// transform shouldn't cause any problem in this case, as it is covered by the spec.
+			prop != "transform" && ( self.elem.style[ transition[ prop ].real ] = jQuery.css( self.elem, prop ) );
+			// Don't set the style immediately, the transition property has not been filled yet
+			//setTimeout(function() {
+			//	jQuery.style( self.elem, prop, to + self.unit );
+			transition[ prop ].styleToSet = [ self.elem, prop, to + self.unit ];
+
+				// use a setTimeout to detect the end of a transition
+				// the transitionend event is unreliable
+				transition[ prop ].timeout = setTimeout(function() {
+					jQuery.timers.splice( jQuery.timers.indexOf( t ), 1 );
+					self.step( true );
+				// add an unperceptible delay to help some tests pass in Firefox
+				}, self.options.duration /*+ 30*/);
+			//}, 0);
+
+		} else if ( t() && jQuery.timers.push(t) && !timerId ) {
 			timerId = setInterval( fx.tick, fx.interval );
 		}
 	},
@@ -509,12 +610,26 @@ jQuery.fx.prototype = {
 			t = fxNow || createFxNow(),
 			done = true,
 			elem = this.elem,
-			options = this.options;
+			options = this.options,
+			// ++TRANSITION++
+			transition = options.transition[ this.prop ],
+			supportTransition;
 
-		if ( gotoEnd || t >= options.duration + this.startTime ) {
-			this.now = this.end;
-			this.pos = this.state = 1;
-			this.update();
+		if ( transition || gotoEnd || t >= options.duration + this.startTime ) {
+			if ( !transition ) {
+				this.now = this.end;
+				this.pos = this.state = 1;
+				this.update();
+			// ++TRANSITION++
+			} else {
+				clearTimeout(transition.timeout);
+				// Stop a transition halfway through
+				if ( !gotoEnd ) {
+					// yes, stoping a transition halfway through should be as simple as setting a property to its current value.
+					// Try to call window.getComputedStyle() only once per element (in tick()?)
+					this.elem.style[transition.real] = jQuery.css( this.elem, transition.real );
+				}
+			}
 
 			options.animatedProperties[ this.prop ] = true;
 
@@ -546,6 +661,16 @@ jQuery.fx.prototype = {
 						// Toggle data is no longer needed
 						jQuery.removeData( elem, "toggle" + p, true );
 					}
+				}
+
+				// ++TRANSITION++
+				// cleanup the transition property
+				if ( (supportTransition = elem.nodeType === 1 && jQuery.support.transition) ) {
+					transition = ',' + elem.style[supportTransition];
+					for ( p in options.transition ) {
+						transition = transition.split( options.transition[p].lower ).join('_');
+					}
+					elem.style[supportTransition] = transition.replace(/, ?_[^,]*/g, '').substr(1);
 				}
 
 				// Execute the complete function
@@ -591,7 +716,8 @@ jQuery.extend( jQuery.fx, {
 		for ( ; i < timers.length; i++ ) {
 			timer = timers[ i ];
 			// Checks the timer has not already been removed
-			if ( !timer() && timers[ i ] === timer ) {
+			// ++TRANSITION++
+			if ( !timer.transition && !timer() && timers[ i ] === timer ) {
 				timers.splice( i--, 1 );
 			}
 		}
