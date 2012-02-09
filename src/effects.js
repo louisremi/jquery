@@ -218,7 +218,7 @@ jQuery.fn.extend({
 
 				// ++TRANSITION++
 				// check that CSS Transitions can be used
-				transition = supportTransition && isElement && opt.duration > 0 && name !== "scrollTop" && (
+				transition = supportTransition && isElement && opt.duration > 0 && name.indexOf("scroll") && (
 					// we could use a hash to convert the names
 					easing == 'swing' ? 'ease':
 					easing == 'linear' ? easing:
@@ -227,7 +227,7 @@ jQuery.fn.extend({
 
 				// collect the properties to be added to elem.style.transition...
 				if ( transition ) {
-					real = cssProps[p] || p;
+					real = cssProps[ name ] || name;
 
 					lower = real.replace(/([A-Z])/g, '-$1').toLowerCase();
 
@@ -236,7 +236,7 @@ jQuery.fn.extend({
 						opt.duration +"ms "+
 						transition;
 
-					opt.transition[p] = {
+					opt.transition[ name ] = {
 						lower: lower,
 						real: real
 					};
@@ -554,9 +554,7 @@ jQuery.fx.prototype = {
 			// explicitly set the property to it's current computed value to workaround bugzil.la/571344
 			// transform shouldn't cause any problem in this case, as it is covered by the spec.
 			prop != "transform" && ( self.elem.style[ transition[ prop ].real ] = jQuery.css( self.elem, prop ) );
-			// Don't set the style immediately, the transition property has not been filled yet
-			//setTimeout(function() {
-			//	jQuery.style( self.elem, prop, to + self.unit );
+
 			transition[ prop ].styleToSet = [ self.elem, prop, to + self.unit ];
 
 				// use a setTimeout to detect the end of a transition
@@ -565,8 +563,7 @@ jQuery.fx.prototype = {
 					jQuery.timers.splice( jQuery.timers.indexOf( t ), 1 );
 					self.step( true );
 				// add an unperceptible delay to help some tests pass in Firefox
-				}, self.options.duration /*+ 30*/);
-			//}, 0);
+				}, self.options.duration + 30);
 
 		} else if ( t() && jQuery.timers.push(t) && !timerId ) {
 			timerId = setInterval( fx.tick, fx.interval );
