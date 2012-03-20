@@ -7,13 +7,19 @@ var bareObj = function(value) { return value; };
 var functionReturningObj = function(value) { return (function() { return value; }); };
 
 test("text()", function() {
-	expect(3);
+	expect(4);
 	var expected = "This link has class=\"blog\": Simon Willison's Weblog";
 	equal( jQuery("#sap").text(), expected, "Check for merged text of more then one element." );
 
 	// Check serialization of text values
 	equal( jQuery(document.createTextNode("foo")).text(), "foo", "Text node was retreived from .text()." );
 	notEqual( jQuery(document).text(), "", "Retrieving text for the document retrieves all text (#10724).");
+
+	// Retrieve from document fragments #10864
+	var frag = document.createDocumentFragment();
+		frag.appendChild( document.createTextNode("foo") );
+
+	equal( jQuery( frag ).text(), "foo", "Document Fragment Text node was retreived from .text().");
 });
 
 test("text(undefined)", function() {
@@ -161,10 +167,10 @@ test("wrap(String) consecutive elements (#10177)", function() {
 
 	expect(targets.length * 2);
 	targets.wrap("<div class='wrapper'></div>");
-	
+
 	targets.each(function() {
 		var $this = jQuery(this);
-		
+
 		ok( $this.parent().is('.wrapper'), "Check each elements parent is correct (.wrapper)" );
 		equal( $this.siblings().length, 0, "Each element should be wrapped individually" );
 	});
@@ -259,7 +265,7 @@ test("unwrap()", function() {
 });
 
 var testAppend = function(valueObj) {
-	expect(41);
+	expect(46);
 	var defaultText = "Try them out:"
 	var result = jQuery("#first").append(valueObj("<b>buga</b>"));
 	equal( result.text(), defaultText + "buga", "Check if text appending works" );
@@ -309,6 +315,12 @@ var testAppend = function(valueObj) {
 	jQuery("form").append(valueObj("<input name='radiotest' type='radio' checked />"));
 	jQuery("form input[name=radiotest]").each(function(){
 		ok( jQuery(this).is(":checked"), "Append HTML5-formated checked radio");
+	}).remove();
+
+	QUnit.reset();
+	jQuery("form").append(valueObj("<input type='radio' checked='checked' name='radiotest' />"));
+	jQuery("form input[name=radiotest]").each(function(){
+		ok( jQuery(this).is(":checked"), "Append with name attribute after checked attribute");
 	}).remove();
 
 	QUnit.reset();
@@ -1163,6 +1175,15 @@ test("clone()", function() {
 	equal( jQuery("body").clone().children()[0].id, "qunit-header", "Make sure cloning body works" );
 });
 
+test("clone(script type=non-javascript) (#11359)", function() {
+	expect(3);
+	var src = jQuery("<script type='text/filler'>Lorem ipsum dolor sit amet</script><q><script type='text/filler'>consectetur adipiscing elit</script></q>");
+	var dest = src.clone();
+	equal( dest[0].text, "Lorem ipsum dolor sit amet", "Cloning preserves script text" );
+	equal( dest.last().html(), src.last().html(), "Cloning preserves nested script text" );
+	ok( /^\s*<scr.pt\s+type=['"]?text\/filler['"]?\s*>consectetur adipiscing elit<\/scr.pt>\s*$/i.test( dest.last().html() ), "Cloning preserves nested script text" );
+});
+
 test("clone(form element) (Bug #3879, #6655)", function() {
 	expect(5);
 	var element = jQuery("<select><option>Foo</option><option selected>Bar</option></select>");
@@ -1212,13 +1233,23 @@ test("clone() on XML nodes", function() {
 });
 }
 
+test("clone() on local XML nodes with html5 nodename", function() {
+	expect(2);
+
+	var $xmlDoc = jQuery( jQuery.parseXML( "<root><meter /></root>" ) ),
+		$meter = $xmlDoc.find( "meter" ).clone();
+
+	equal( $meter[0].nodeName, "meter", "Check if nodeName was not changed due to cloning" );
+	equal( $meter[0].nodeType, 1, "Check if nodeType is not changed due to cloning" );
+});
+
 test("html(undefined)", function() {
 	expect(1);
 	equal( jQuery("#foo").html("<i>test</i>").html(undefined).html().toLowerCase(), "<i>test</i>", ".html(undefined) is chainable (#5571)" );
 });
 
 var testHtml = function(valueObj) {
-	expect(34);
+	expect(35);
 
 	jQuery.scriptorder = 0;
 
@@ -1273,7 +1304,7 @@ var testHtml = function(valueObj) {
 
 	QUnit.reset();
 
-	jQuery("#qunit-fixture").html(valueObj("<script type='something/else'>ok( false, 'Non-script evaluated.' );</script><script type='text/javascript'>ok( true, 'text/javascript is evaluated.' );</script><script>ok( true, 'No type is evaluated.' );</script><div><script type='text/javascript'>ok( true, 'Inner text/javascript is evaluated.' );</script><script>ok( true, 'Inner No type is evaluated.' );</script><script type='something/else'>ok( false, 'Non-script evaluated.' );</script></div>"));
+	jQuery("#qunit-fixture").html(valueObj("<script type='something/else'>ok( false, 'Non-script evaluated.' );</script><script type='text/javascript'>ok( true, 'text/javascript is evaluated.' );</script><script>ok( true, 'No type is evaluated.' );</script><div><script type='text/javascript'>ok( true, 'Inner text/javascript is evaluated.' );</script><script>ok( true, 'Inner No type is evaluated.' );</script><script type='something/else'>ok( false, 'Non-script evaluated.' );</script><script type='type/ecmascript'>ok( true, 'type/ecmascript evaluated.' );</script></div>"));
 
 	var child = jQuery("#qunit-fixture").find("script");
 
@@ -1299,7 +1330,7 @@ test("html(String)", function() {
 test("html(Function)", function() {
 	testHtml(functionReturningObj);
 
-	expect(36);
+	expect(37);
 
 	QUnit.reset();
 
@@ -1708,4 +1739,16 @@ test("jQuery.fragments cache expectations", function() {
 	});
 
 	equal( fragmentCacheSize(), 12, "12 entries exist in jQuery.fragments, 2" );
+});
+
+test("Guard against exceptions when clearing safeChildNodes", function() {
+	expect( 1 );
+
+	var div;
+
+	try {
+		div = jQuery("<div/><hr/><code/><b/>");
+	} catch(e) {}
+
+	ok( div && div.jquery, "Created nodes safely, guarded against exceptions on safeChildNodes[ -1 ]" );
 });

@@ -145,7 +145,7 @@ test("delay() can be stopped", function() {
 			ok( true, "This first function was dequeued" );
 			next();
 		})
-		.delay( 100, "alternate" )
+		.delay( 1000, "alternate" )
 		.queue( "alternate", function() {
 			run++;
 			ok( true, "The function was dequeued immediately, the delay was stopped" );
@@ -156,7 +156,7 @@ test("delay() can be stopped", function() {
 		.stop( "alternate", false, false )
 
 		// this test
-		.delay( 100 )
+		.delay( 1000 )
 		.queue(function() {
 			run++;
 			ok( false, "This queue should never run" );
@@ -167,7 +167,7 @@ test("delay() can be stopped", function() {
 
 	equal( run, 2, "Queue ran the proper functions" );
 
-	setTimeout( start, 200 );
+	setTimeout( start, 2000 );
 });
 
 
@@ -292,4 +292,14 @@ test("promise()", function() {
 	jQuery.each( objects, function() {
 		this.dequeue();
 	});
+});
+
+test(".promise(obj)", function() {
+	expect(2);
+
+	var obj = {};
+	var promise = jQuery( "#foo" ).promise( "promise", obj );
+
+	ok( jQuery.isFunction( promise.promise ), ".promise(type, obj) returns a promise" );
+	strictEqual( promise, obj, ".promise(type, obj) returns obj" );
 });

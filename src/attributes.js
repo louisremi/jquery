@@ -162,7 +162,7 @@ jQuery.fn.extend({
 
 		if ( !arguments.length ) {
 			if ( elem ) {
-				hooks = jQuery.valHooks[ elem.nodeName.toLowerCase() ] || jQuery.valHooks[ elem.type ];
+				hooks = jQuery.valHooks[ elem.type ] || jQuery.valHooks[ elem.nodeName.toLowerCase() ];
 
 				if ( hooks && "get" in hooks && (ret = hooks.get( elem, "value" )) !== undefined ) {
 					return ret;
@@ -206,7 +206,7 @@ jQuery.fn.extend({
 				});
 			}
 
-			hooks = jQuery.valHooks[ this.nodeName.toLowerCase() ] || jQuery.valHooks[ this.type ];
+			hooks = jQuery.valHooks[ this.type ] || jQuery.valHooks[ this.nodeName.toLowerCase() ];
 
 			// If set returns undefined, fall back to normal setting
 			if ( !hooks || !("set" in hooks) || hooks.set( this, val, "value" ) === undefined ) {
@@ -352,7 +352,7 @@ jQuery.extend({
 	},
 
 	removeAttr: function( elem, value ) {
-		var propName, attrNames, name, l,
+		var propName, attrNames, name, l, isBool,
 			i = 0;
 
 		if ( value && elem.nodeType === 1 ) {
@@ -364,13 +364,17 @@ jQuery.extend({
 
 				if ( name ) {
 					propName = jQuery.propFix[ name ] || name;
+					isBool = rboolean.test( name );
 
 					// See #9699 for explanation of this approach (setting first, then removal)
-					jQuery.attr( elem, name, "" );
+					// Do not do this for boolean attributes (see #10870)
+					if ( !isBool ) {
+						jQuery.attr( elem, name, "" );
+					}
 					elem.removeAttribute( getSetAttribute ? name : propName );
 
 					// Set corresponding property to false for boolean attributes
-					if ( rboolean.test( name ) && propName in elem ) {
+					if ( isBool && propName in elem ) {
 						elem[ propName ] = false;
 					}
 				}
@@ -524,7 +528,8 @@ if ( !getSetAttribute ) {
 
 	fixSpecified = {
 		name: true,
-		id: true
+		id: true,
+		coords: true
 	};
 
 	// Use this for any attribute in IE6/7

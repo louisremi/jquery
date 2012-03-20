@@ -1,11 +1,6 @@
 module("ajax", { teardown: moduleTeardown });
 
-// Safari 3 randomly crashes when running these tests,
-// but only in the full suite - you can run just the Ajax
-// tests and they'll pass
-//if ( !jQuery.browser.safari ) {
-
-if ( !isLocal ) {
+if ( !isLocal || hasPHP) {
 
 test("jQuery.ajax() - success callbacks", function() {
 	expect( 8 );
@@ -1292,7 +1287,9 @@ test("jQuery.getScript(String, Function) - with callback", function() {
 	jQuery.getScript(url("data/test.js"), function( data, _, jqXHR ) {
 		equal( foobar, "bar", "Check if script was evaluated" );
 		strictEqual( data, jqXHR.responseText, "Same-domain script requests returns the source of the script (#8082)" );
-		setTimeout(start, 100);
+		setTimeout(function() {
+			start();
+		}, 1000 );
 	});
 });
 
@@ -2327,10 +2324,42 @@ test("jQuery.ajax - abort in prefilter", function() {
 
 });
 
+test( "jQuery.ajax - loading binary data shouldn't throw an exception in IE (#11426)", 1, function() {
+	stop();
+	jQuery.ajax( url( "data/1x1.jpg" ), {
+		success: function( data ) {
+			ok( data === undefined || /JFIF/.test( data ) , "success callback reached" );
+			start();
+		},
+		error: function( _, __, error ) {
+			ok( false, "exception thrown: '" + error + "'" );
+			start();
+		}
+	});
+});
+
+test( "jQuery.domManip - no side effect because of ajaxSetup or global events (#11264)", function() {
+	expect( 1 );
+
+	jQuery.ajaxSetup({
+		type: "POST"
+	});
+
+	jQuery( document ).bind( "ajaxStart ajaxStop", function() {
+		ok( false, "Global event triggered" );
+	});
+
+	jQuery( "#qunit-fixture" ).append( "<script src='data/evalScript.php'></script>" );
+
+	jQuery( document ).unbind( "ajaxStart ajaxStop" );
+
+	jQuery.ajaxSetup({
+		type: "GET"
+	});
+});
+
 test("jQuery.ajax - active counter", function() {
     ok( jQuery.active == 0, "ajax active counter should be zero: " + jQuery.active );
 });
 
 }
-
-//}

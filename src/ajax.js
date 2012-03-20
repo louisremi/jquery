@@ -315,7 +315,7 @@ jQuery.extend({
 		isLocal: rlocalProtocol.test( ajaxLocParts[ 1 ] ),
 		global: true,
 		type: "GET",
-		contentType: "application/x-www-form-urlencoded",
+		contentType: "application/x-www-form-urlencoded; charset=UTF-8",
 		processData: true,
 		async: true,
 		/*
@@ -641,7 +641,7 @@ jQuery.extend({
 		// Apply prefilters
 		inspectPrefiltersOrTransports( prefilters, s, options, jqXHR );
 
-		// If request was aborted inside a prefiler, stop there
+		// If request was aborted inside a prefilter, stop there
 		if ( state === 2 ) {
 			return false;
 		}

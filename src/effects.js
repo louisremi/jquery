@@ -476,11 +476,11 @@ jQuery.extend({
 	},
 
 	easing: {
-		linear: function( p, n, firstNum, diff ) {
-			return firstNum + diff * p;
+		linear: function( p ) {
+			return p;
 		},
-		swing: function( p, n, firstNum, diff ) {
-			return ( ( -Math.cos( p*Math.PI ) / 2 ) + 0.5 ) * diff + firstNum;
+		swing: function( p ) {
+			return ( -Math.cos( p*Math.PI ) / 2 ) + 0.5;
 		}
 	},
 
@@ -542,8 +542,12 @@ jQuery.fx.prototype = {
 		t.queue = this.options.queue;
 		t.elem = this.elem;
 		t.saveState = function() {
-			if ( self.options.hide && jQuery._data( self.elem, "fxshow" + self.prop ) === undefined ) {
-				jQuery._data( self.elem, "fxshow" + self.prop, self.start );
+			if ( jQuery._data( self.elem, "fxshow" + self.prop ) === undefined ) {
+				if ( self.options.hide ) {
+					jQuery._data( self.elem, "fxshow" + self.prop, self.start );
+				} else if ( self.options.show ) {
+					jQuery._data( self.elem, "fxshow" + self.prop, self.end );
+				}
 			}
 		};
 
@@ -753,9 +757,8 @@ jQuery.extend( jQuery.fx, {
 	}
 });
 
-// Adds width/height step functions
-// Do not set anything below 0
-jQuery.each([ "width", "height" ], function( i, prop ) {
+// Ensure props that can't be negative don't go there on undershoot easing
+jQuery.each( fxAttrs.concat.apply( [], fxAttrs ), function( i, prop ) {
 	jQuery.fx.step[ prop ] = function( fx ) {
 		jQuery.style( fx.elem, prop, Math.max(0, fx.now) + fx.unit );
 	};
@@ -795,7 +798,7 @@ function defaultDisplay( nodeName ) {
 			// document to it; WebKit & Firefox won't allow reusing the iframe document.
 			if ( !iframeDoc || !iframe.createElement ) {
 				iframeDoc = ( iframe.contentWindow || iframe.contentDocument ).document;
-				iframeDoc.write( ( document.compatMode === "CSS1Compat" ? "<!doctype html>" : "" ) + "<html><body>" );
+				iframeDoc.write( ( jQuery.support.boxModel ? "<!doctype html>" : "" ) + "<html><body>" );
 				iframeDoc.close();
 			}
 

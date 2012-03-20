@@ -34,7 +34,7 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
 				// 3rd condition allows Nokia support, as it supports the docElem prop but not CSS1Compat
 				doc = elem.document;
 				docElemProp = doc.documentElement[ clientProp ];
-				return doc.compatMode === "CSS1Compat" && docElemProp ||
+				return jQuery.support.boxModel && docElemProp ||
 					doc.body && doc.body[ clientProp ] || docElemProp;
 			}
 
@@ -42,8 +42,16 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
 			if ( elem.nodeType === 9 ) {
 				// Either scroll[Width/Height] or offset[Width/Height], whichever is greater
 				doc = elem.documentElement;
+
+				// when a window > document, IE6 reports a offset[Width/Height] > client[Width/Height]
+				// so we can't use max, as it'll choose the incorrect offset[Width/Height]
+				// instead we use the correct client[Width/Height]
+				// support:IE6
+				if ( doc[ clientProp ] >= doc[ scrollProp ] ) {
+					return doc[ clientProp ];
+				}
+
 				return Math.max(
-					doc[ clientProp ],
 					elem.body[ scrollProp ], doc[ scrollProp ],
 					elem.body[ offsetProp ], doc[ offsetProp ]
 				);
