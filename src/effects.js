@@ -595,15 +595,18 @@ jQuery.fx.prototype = {
 				self.elem.style[ transition[ prop ].real ] = from + self.unit;
 			}
 
+			// prevent negative values on certain properties
+			jQuery.fx.step[ prop ] && ( to = Math.max(0, to) );
+
 			transition[ prop ].styleToSet = [ self.elem, prop, to + self.unit ];
 
-				// use a setTimeout to detect the end of a transition
-				// the transitionend event is unreliable
-				transition[ prop ].timeout = setTimeout(function() {
-					jQuery.timers.splice( jQuery.timers.indexOf( t ), 1 );
-					self.step( true );
-				// add an unperceptible delay to help some tests pass in Firefox
-				}, self.options.duration + 30);
+			// use a setTimeout to detect the end of a transition
+			// the transitionend event is unreliable
+			transition[ prop ].timeout = setTimeout(function() {
+				jQuery.timers.splice( jQuery.timers.indexOf( t ), 1 );
+				self.step( true );
+			// add an unperceptible delay to help some tests pass in Firefox
+			}, self.options.duration + 30);
 
 		} else if ( t() && jQuery.timers.push(t) && !timerId ) {
 			timerId = setInterval( fx.tick, fx.interval );
